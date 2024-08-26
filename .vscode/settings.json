@@ -1,0 +1,10 @@
+{
+    "files.associations": {
+        "*.embeddedhtml": "html",
+        "typeinfo": "cpp",
+        "type_traits": "cpp",
+        "typeindex": "cpp",
+        "mutex": "cpp",
+        "xstring": "cpp"
+    }
+}
