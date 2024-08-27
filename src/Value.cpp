@@ -24,7 +24,7 @@ namespace codegen {
     Value::Value(
         vreg_id regId,
         FunctionBuilder* func,
-        bind::DataType* type
+        DataType* type
     ) : m_owner(func), m_type(type), m_isImm(false), m_isLabel(false), m_regId(regId) {}
     
     void Value::reset(const Value& v) {
@@ -231,7 +231,7 @@ namespace codegen {
         return m_owner->generateCall(strictMatch, { rhs }, *this);
     }
 
-    Value Value::operator () (const bind::Array<Value>& args, Value* self) const {
+    Value Value::operator () (const Array<Value>& args, Value* self) const {
         if (isEmpty() || (self && self->isEmpty())) return Value();
         if (m_isLabel) {
             m_owner->logError("Invalid use of label as a value");

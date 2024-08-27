@@ -8,6 +8,7 @@ namespace codegen {
         { "stack_alloc"   , 2, { OperandType::Immediate, OperandType::Immediate, OperandType::Unused    }, 0xFF, 0, 0, 0, 0 },
         { "stack_ptr"     , 2, { OperandType::Register , OperandType::Immediate, OperandType::Unused    }, 0   , 0, 0, 0, 0 },
         { "stack_free"    , 1, { OperandType::Immediate, OperandType::Unused   , OperandType::Unused    }, 0xFF, 0, 0, 0, 0 },
+        { "value_ptr"     , 2, { OperandType::Register , OperandType::Immediate, OperandType::Unused    }, 0   , 0, 0, 0, 0 },
         { "reserve"       , 1, { OperandType::Register , OperandType::Unused   , OperandType::Unused    }, 0   , 0, 0, 0, 0 },
         { "resolve"       , 2, { OperandType::Register , OperandType::Value    , OperandType::Unused    }, 0xFF, 0, 0, 0, 0 },
         { "load"          , 3, { OperandType::Register , OperandType::Register , OperandType::Immediate }, 0   , 0, 0, 0, 0 },

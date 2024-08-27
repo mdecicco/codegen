@@ -8,6 +8,8 @@
 namespace bind {
     class DataType;
     class Function;
+    class ISymbol;
+    class ValuePointer;
 };
 
 namespace codegen {
@@ -28,8 +30,8 @@ namespace codegen {
 
     class FunctionBuilder : public IWithLogging {
         public:
-            FunctionBuilder(bind::Function* func);
-            FunctionBuilder(bind::Function* func, FunctionBuilder* parent);
+            FunctionBuilder(Function* func);
+            FunctionBuilder(Function* func, FunctionBuilder* parent);
             ~FunctionBuilder();
 
             InstructionRef add(const Instruction& i);
@@ -38,6 +40,8 @@ namespace codegen {
             InstructionRef stackAlloc(u32 size, stack_id alloc);
             InstructionRef stackPtr(const Value& ptrDest, stack_id alloc);
             InstructionRef stackFree(stack_id alloc);
+            InstructionRef valuePtr(const Value& reg, symbol_id id);
+            InstructionRef valuePtr(const Value& reg, ValuePointer* sym);
             InstructionRef reserve(const Value& reg);
             InstructionRef resolve(const Value& reg, const Value& assignTo);
             InstructionRef load(const Value& dest, const Value& src, u32 offset = 0);
@@ -47,7 +51,7 @@ namespace codegen {
             InstructionRef cvt(const Value& dest, const Value& src, u64 destTypeHash);
             InstructionRef param(const Value& val);
             InstructionRef call(FunctionBuilder* func, const Value& retDest = Value(), const Value& selfPtr = Value());
-            InstructionRef call(bind::Function* func, const Value& retDest = Value(), const Value& selfPtr = Value());
+            InstructionRef call(Function* func, const Value& retDest = Value(), const Value& selfPtr = Value());
             InstructionRef call(const Value& func, const Value& retDest = Value(), const Value& selfPtr = Value());
             InstructionRef ret();
             InstructionRef branch(const Value& cond, label_id destOnFalse);
@@ -140,7 +144,7 @@ namespace codegen {
                 const Value& selfPtr = Value()
             );
             Value generateCall(
-                bind::Function* func,
+                Function* func,
                 const Array<Value>& args = Array<Value>(),
                 const Value& selfPtr = Value()
             );
@@ -150,7 +154,7 @@ namespace codegen {
                 const Value& selfPtr = Value()
             );
 
-            bind::Function* getFunction() const;
+            Function* getFunction() const;
             Array<Instruction>& getCode();
             const Array<Instruction>& getCode() const;
 
@@ -158,7 +162,8 @@ namespace codegen {
             stack_id reserveAllocId();
 
             Value label(label_id label);
-            Value val(bind::DataType* tp);
+            Value val(DataType* tp);
+            Value val(ValuePointer* value);
             Value val(bool imm);
             Value val(u8 imm);
             Value val(u16 imm);
@@ -175,7 +180,7 @@ namespace codegen {
         protected:
             friend class InstructionRef;
 
-            bind::Function* m_function;
+            Function* m_function;
             FunctionBuilder* m_parent;
             Array<Instruction> m_code;
             label_id m_nextLabel;

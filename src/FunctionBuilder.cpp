@@ -2,12 +2,14 @@
 #include <bind/DataType.h>
 #include <bind/Function.h>
 #include <bind/FunctionType.h>
+#include <bind/ValuePointer.h>
+#include <bind/Registry.h>
 
 namespace codegen {
-    FunctionBuilder::FunctionBuilder(bind::Function* func) : m_function(func), m_parent(nullptr), m_nextLabel(1), m_nextReg(1), m_nextAlloc(1) {
+    FunctionBuilder::FunctionBuilder(Function* func) : m_function(func), m_parent(nullptr), m_nextLabel(1), m_nextReg(1), m_nextAlloc(1) {
     }
 
-    FunctionBuilder::FunctionBuilder(bind::Function* func, FunctionBuilder* parent) : m_function(func), m_parent(parent), m_nextLabel(1), m_nextReg(1), m_nextAlloc(1) {
+    FunctionBuilder::FunctionBuilder(Function* func, FunctionBuilder* parent) : m_function(func), m_parent(parent), m_nextLabel(1), m_nextReg(1), m_nextAlloc(1) {
     }
 
     FunctionBuilder::~FunctionBuilder() {
@@ -36,7 +38,7 @@ namespace codegen {
         i.operands[0].reset(val(size));
         i.operands[1].reset(val(alloc));
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::stackPtr(const Value& ptrDest, stack_id alloc) {
@@ -44,21 +46,37 @@ namespace codegen {
         i.operands[0].reset(ptrDest);
         i.operands[1].reset(val(alloc));
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::stackFree(stack_id alloc) {
         Instruction i(OpCode::stack_free);
         i.operands[0].reset(val(alloc));
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
+    }
+
+    InstructionRef FunctionBuilder::valuePtr(const Value& reg, symbol_id id) {
+        Instruction i(OpCode::value_ptr);
+        i.operands[0].reset(reg);
+        i.operands[1].reset(val(id));
+        m_code.push(i);
+        return add(i);
+    }
+
+    InstructionRef FunctionBuilder::valuePtr(const Value& reg, ValuePointer* sym) {
+        Instruction i(OpCode::value_ptr);
+        i.operands[0].reset(reg);
+        i.operands[1].reset(val(sym->getSymbolId()));
+        m_code.push(i);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::reserve(const Value& reg) {
         Instruction i(OpCode::reserve);
         i.operands[0].reset(reg);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::resolve(const Value& reg, const Value& assignTo) {
@@ -66,7 +84,7 @@ namespace codegen {
         i.operands[0].reset(reg);
         i.operands[1].reset(assignTo);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::load(const Value& dest, const Value& src, u32 offset) {
@@ -75,7 +93,7 @@ namespace codegen {
         i.operands[1].reset(src);
         i.operands[2].reset(val(offset));
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::store(const Value& src, const Value& dest, u32 offset) {
@@ -84,18 +102,18 @@ namespace codegen {
         i.operands[1].reset(dest);
         i.operands[2].reset(val(offset));
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::jump(label_id _label) {
         Instruction i(OpCode::jump);
         i.operands[0].reset(label(_label));
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::cvt(const Value& dest, const Value& src) {
-        return cvt(dest, src, dest.m_type->getSymbolHash());
+        return cvt(dest, src, dest.m_type->getSymbolId());
     }
 
     InstructionRef FunctionBuilder::cvt(const Value& dest, const Value& src, u64 destTypeHash) {
@@ -104,14 +122,14 @@ namespace codegen {
         i.operands[1].reset(src);
         i.operands[2].reset(val(destTypeHash));
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::param(const Value& val) {
         Instruction i(OpCode::param);
         i.operands[0].reset(val);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::call(FunctionBuilder* func, const Value& retDest, const Value& selfPtr) {
@@ -120,16 +138,16 @@ namespace codegen {
         i.operands[1].reset(retDest);
         i.operands[2].reset(selfPtr);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
-    InstructionRef FunctionBuilder::call(bind::Function* func, const Value& retDest, const Value& selfPtr) {
+    InstructionRef FunctionBuilder::call(Function* func, const Value& retDest, const Value& selfPtr) {
         Instruction i(OpCode::call);
         i.operands[0].reset(val(func));
         i.operands[1].reset(retDest);
         i.operands[2].reset(selfPtr);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::call(const Value& func, const Value& retDest, const Value& selfPtr) {
@@ -138,13 +156,13 @@ namespace codegen {
         i.operands[1].reset(retDest);
         i.operands[2].reset(selfPtr);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::ret() {
         Instruction i(OpCode::ret);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::branch(const Value& cond, label_id destOnFalse) {
@@ -152,7 +170,7 @@ namespace codegen {
         i.operands[0].reset(cond);
         i.operands[1].reset(label(destOnFalse));
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::_not(const Value& result, const Value& val) {
@@ -160,7 +178,7 @@ namespace codegen {
         i.operands[0].reset(result);
         i.operands[1].reset(val);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::inv(const Value& result, const Value& val) {
@@ -168,7 +186,7 @@ namespace codegen {
         i.operands[0].reset(result);
         i.operands[1].reset(val);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::shl(const Value& result, const Value& val, const Value& bits) {
@@ -177,7 +195,7 @@ namespace codegen {
         i.operands[1].reset(val);
         i.operands[2].reset(bits);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::shr(const Value& result, const Value& val, const Value& bits) {
@@ -186,7 +204,7 @@ namespace codegen {
         i.operands[1].reset(val);
         i.operands[2].reset(bits);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::land(const Value& result, const Value& a, const Value& b) {
@@ -195,7 +213,7 @@ namespace codegen {
         i.operands[1].reset(a);
         i.operands[2].reset(b);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::band(const Value& result, const Value& a, const Value& b) {
@@ -204,7 +222,7 @@ namespace codegen {
         i.operands[1].reset(a);
         i.operands[2].reset(b);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::lor(const Value& result, const Value& a, const Value& b) {
@@ -213,7 +231,7 @@ namespace codegen {
         i.operands[1].reset(a);
         i.operands[2].reset(b);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::bor(const Value& result, const Value& a, const Value& b) {
@@ -222,7 +240,7 @@ namespace codegen {
         i.operands[1].reset(a);
         i.operands[2].reset(b);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::_xor(const Value& result, const Value& a, const Value& b) {
@@ -231,7 +249,7 @@ namespace codegen {
         i.operands[1].reset(a);
         i.operands[2].reset(b);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::assign(const Value& dest, const Value& src) {
@@ -239,7 +257,7 @@ namespace codegen {
         i.operands[0].reset(dest);
         i.operands[1].reset(src);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::vset(const Value& dest, const Value& src) {
@@ -247,7 +265,7 @@ namespace codegen {
         i.operands[0].reset(dest);
         i.operands[1].reset(src);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::vadd(const Value& dest, const Value& val) {
@@ -255,7 +273,7 @@ namespace codegen {
         i.operands[0].reset(dest);
         i.operands[1].reset(val);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::vsub(const Value& dest, const Value& val) {
@@ -263,7 +281,7 @@ namespace codegen {
         i.operands[0].reset(dest);
         i.operands[1].reset(val);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::vmul(const Value& dest, const Value& val) {
@@ -271,7 +289,7 @@ namespace codegen {
         i.operands[0].reset(dest);
         i.operands[1].reset(val);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::vdiv(const Value& dest, const Value& val) {
@@ -279,7 +297,7 @@ namespace codegen {
         i.operands[0].reset(dest);
         i.operands[1].reset(val);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::vmod(const Value& dest, const Value& val) {
@@ -287,14 +305,14 @@ namespace codegen {
         i.operands[0].reset(dest);
         i.operands[1].reset(val);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::vneg(const Value& val) {
         Instruction i(OpCode::vneg);
         i.operands[0].reset(val);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::vdot(const Value& result, const Value& a, const Value& b) {
@@ -303,7 +321,7 @@ namespace codegen {
         i.operands[1].reset(a);
         i.operands[2].reset(b);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::vmag(const Value& result, const Value& val) {
@@ -311,7 +329,7 @@ namespace codegen {
         i.operands[0].reset(result);
         i.operands[1].reset(val);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::vmagsq(const Value& result, const Value& val) {
@@ -319,14 +337,14 @@ namespace codegen {
         i.operands[0].reset(result);
         i.operands[1].reset(val);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::vnorm(const Value& val) {
         Instruction i(OpCode::vnorm);
         i.operands[0].reset(val);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::vcross(const Value& result, const Value& a, const Value& b) {
@@ -335,7 +353,7 @@ namespace codegen {
         i.operands[1].reset(a);
         i.operands[2].reset(b);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::iadd(const Value& result, const Value& a, const Value& b) {
@@ -344,7 +362,7 @@ namespace codegen {
         i.operands[1].reset(a);
         i.operands[2].reset(b);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::uadd(const Value& result, const Value& a, const Value& b) {
@@ -353,7 +371,7 @@ namespace codegen {
         i.operands[1].reset(a);
         i.operands[2].reset(b);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::fadd(const Value& result, const Value& a, const Value& b) {
@@ -362,7 +380,7 @@ namespace codegen {
         i.operands[1].reset(a);
         i.operands[2].reset(b);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::dadd(const Value& result, const Value& a, const Value& b) {
@@ -371,7 +389,7 @@ namespace codegen {
         i.operands[1].reset(a);
         i.operands[2].reset(b);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::isub(const Value& result, const Value& a, const Value& b) {
@@ -380,7 +398,7 @@ namespace codegen {
         i.operands[1].reset(a);
         i.operands[2].reset(b);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::usub(const Value& result, const Value& a, const Value& b) {
@@ -389,7 +407,7 @@ namespace codegen {
         i.operands[1].reset(a);
         i.operands[2].reset(b);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::fsub(const Value& result, const Value& a, const Value& b) {
@@ -398,7 +416,7 @@ namespace codegen {
         i.operands[1].reset(a);
         i.operands[2].reset(b);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::dsub(const Value& result, const Value& a, const Value& b) {
@@ -407,7 +425,7 @@ namespace codegen {
         i.operands[1].reset(a);
         i.operands[2].reset(b);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::imul(const Value& result, const Value& a, const Value& b) {
@@ -416,7 +434,7 @@ namespace codegen {
         i.operands[1].reset(a);
         i.operands[2].reset(b);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::umul(const Value& result, const Value& a, const Value& b) {
@@ -425,7 +443,7 @@ namespace codegen {
         i.operands[1].reset(a);
         i.operands[2].reset(b);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::fmul(const Value& result, const Value& a, const Value& b) {
@@ -434,7 +452,7 @@ namespace codegen {
         i.operands[1].reset(a);
         i.operands[2].reset(b);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::dmul(const Value& result, const Value& a, const Value& b) {
@@ -443,7 +461,7 @@ namespace codegen {
         i.operands[1].reset(a);
         i.operands[2].reset(b);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::idiv(const Value& result, const Value& a, const Value& b) {
@@ -452,7 +470,7 @@ namespace codegen {
         i.operands[1].reset(a);
         i.operands[2].reset(b);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::udiv(const Value& result, const Value& a, const Value& b) {
@@ -461,7 +479,7 @@ namespace codegen {
         i.operands[1].reset(a);
         i.operands[2].reset(b);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::fdiv(const Value& result, const Value& a, const Value& b) {
@@ -470,7 +488,7 @@ namespace codegen {
         i.operands[1].reset(a);
         i.operands[2].reset(b);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::ddiv(const Value& result, const Value& a, const Value& b) {
@@ -479,7 +497,7 @@ namespace codegen {
         i.operands[1].reset(a);
         i.operands[2].reset(b);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::imod(const Value& result, const Value& a, const Value& b) {
@@ -488,7 +506,7 @@ namespace codegen {
         i.operands[1].reset(a);
         i.operands[2].reset(b);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::umod(const Value& result, const Value& a, const Value& b) {
@@ -497,7 +515,7 @@ namespace codegen {
         i.operands[1].reset(a);
         i.operands[2].reset(b);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::fmod(const Value& result, const Value& a, const Value& b) {
@@ -506,7 +524,7 @@ namespace codegen {
         i.operands[1].reset(a);
         i.operands[2].reset(b);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::dmod(const Value& result, const Value& a, const Value& b) {
@@ -515,7 +533,7 @@ namespace codegen {
         i.operands[1].reset(a);
         i.operands[2].reset(b);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::ineg(const Value& result, const Value& val) {
@@ -523,7 +541,7 @@ namespace codegen {
         i.operands[0].reset(result);
         i.operands[1].reset(val);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::fneg(const Value& result, const Value& val) {
@@ -531,7 +549,7 @@ namespace codegen {
         i.operands[0].reset(result);
         i.operands[1].reset(val);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::dneg(const Value& result, const Value& val) {
@@ -539,63 +557,63 @@ namespace codegen {
         i.operands[0].reset(result);
         i.operands[1].reset(val);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::iinc(const Value& val) {
         Instruction i(OpCode::iinc);
         i.operands[0].reset(val);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::uinc(const Value& val) {
         Instruction i(OpCode::uinc);
         i.operands[0].reset(val);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::finc(const Value& val) {
         Instruction i(OpCode::finc);
         i.operands[0].reset(val);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::dinc(const Value& val) {
         Instruction i(OpCode::dinc);
         i.operands[0].reset(val);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::idec(const Value& val) {
         Instruction i(OpCode::idec);
         i.operands[0].reset(val);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::udec(const Value& val) {
         Instruction i(OpCode::udec);
         i.operands[0].reset(val);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::fdec(const Value& val) {
         Instruction i(OpCode::fdec);
         i.operands[0].reset(val);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::ddec(const Value& val) {
         Instruction i(OpCode::ddec);
         i.operands[0].reset(val);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::ilt(const Value& result, const Value& a, const Value& b) {
@@ -604,7 +622,7 @@ namespace codegen {
         i.operands[1].reset(a);
         i.operands[2].reset(b);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::ult(const Value& result, const Value& a, const Value& b) {
@@ -613,7 +631,7 @@ namespace codegen {
         i.operands[1].reset(a);
         i.operands[2].reset(b);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::flt(const Value& result, const Value& a, const Value& b) {
@@ -622,7 +640,7 @@ namespace codegen {
         i.operands[1].reset(a);
         i.operands[2].reset(b);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::dlt(const Value& result, const Value& a, const Value& b) {
@@ -631,7 +649,7 @@ namespace codegen {
         i.operands[1].reset(a);
         i.operands[2].reset(b);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::ilte(const Value& result, const Value& a, const Value& b) {
@@ -640,7 +658,7 @@ namespace codegen {
         i.operands[1].reset(a);
         i.operands[2].reset(b);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::ulte(const Value& result, const Value& a, const Value& b) {
@@ -649,7 +667,7 @@ namespace codegen {
         i.operands[1].reset(a);
         i.operands[2].reset(b);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::flte(const Value& result, const Value& a, const Value& b) {
@@ -658,7 +676,7 @@ namespace codegen {
         i.operands[1].reset(a);
         i.operands[2].reset(b);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::dlte(const Value& result, const Value& a, const Value& b) {
@@ -667,7 +685,7 @@ namespace codegen {
         i.operands[1].reset(a);
         i.operands[2].reset(b);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::igt(const Value& result, const Value& a, const Value& b) {
@@ -676,7 +694,7 @@ namespace codegen {
         i.operands[1].reset(a);
         i.operands[2].reset(b);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::ugt(const Value& result, const Value& a, const Value& b) {
@@ -685,7 +703,7 @@ namespace codegen {
         i.operands[1].reset(a);
         i.operands[2].reset(b);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::fgt(const Value& result, const Value& a, const Value& b) {
@@ -694,7 +712,7 @@ namespace codegen {
         i.operands[1].reset(a);
         i.operands[2].reset(b);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::dgt(const Value& result, const Value& a, const Value& b) {
@@ -703,7 +721,7 @@ namespace codegen {
         i.operands[1].reset(a);
         i.operands[2].reset(b);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::igte(const Value& result, const Value& a, const Value& b) {
@@ -712,7 +730,7 @@ namespace codegen {
         i.operands[1].reset(a);
         i.operands[2].reset(b);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::ugte(const Value& result, const Value& a, const Value& b) {
@@ -721,7 +739,7 @@ namespace codegen {
         i.operands[1].reset(a);
         i.operands[2].reset(b);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::fgte(const Value& result, const Value& a, const Value& b) {
@@ -730,7 +748,7 @@ namespace codegen {
         i.operands[1].reset(a);
         i.operands[2].reset(b);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::dgte(const Value& result, const Value& a, const Value& b) {
@@ -739,7 +757,7 @@ namespace codegen {
         i.operands[1].reset(a);
         i.operands[2].reset(b);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::ieq(const Value& result, const Value& a, const Value& b) {
@@ -748,7 +766,7 @@ namespace codegen {
         i.operands[1].reset(a);
         i.operands[2].reset(b);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::ueq(const Value& result, const Value& a, const Value& b) {
@@ -757,7 +775,7 @@ namespace codegen {
         i.operands[1].reset(a);
         i.operands[2].reset(b);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::feq(const Value& result, const Value& a, const Value& b) {
@@ -766,7 +784,7 @@ namespace codegen {
         i.operands[1].reset(a);
         i.operands[2].reset(b);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::deq(const Value& result, const Value& a, const Value& b) {
@@ -775,7 +793,7 @@ namespace codegen {
         i.operands[1].reset(a);
         i.operands[2].reset(b);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::ineq(const Value& result, const Value& a, const Value& b) {
@@ -784,7 +802,7 @@ namespace codegen {
         i.operands[1].reset(a);
         i.operands[2].reset(b);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::uneq(const Value& result, const Value& a, const Value& b) {
@@ -793,7 +811,7 @@ namespace codegen {
         i.operands[1].reset(a);
         i.operands[2].reset(b);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::fneq(const Value& result, const Value& a, const Value& b) {
@@ -802,7 +820,7 @@ namespace codegen {
         i.operands[1].reset(a);
         i.operands[2].reset(b);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     InstructionRef FunctionBuilder::dneq(const Value& result, const Value& a, const Value& b) {
@@ -811,23 +829,23 @@ namespace codegen {
         i.operands[1].reset(a);
         i.operands[2].reset(b);
         m_code.push(i);
-        return InstructionRef(this, m_code.size() - 1);
+        return add(i);
     }
 
     Value FunctionBuilder::generateCall(
         FunctionBuilder* func,
-        const bind::Array<Value>& args,
+        const Array<Value>& args,
         const Value& selfPtr
     ) {
         return generateCall(func->getFunction(), args, selfPtr);
     }
 
     Value FunctionBuilder::generateCall(
-        bind::Function* func,
-        const bind::Array<Value>& args,
+        Function* func,
+        const Array<Value>& args,
         const Value& selfPtr
     ) {
-        bind::FunctionType* sig = func->getSignature();
+        FunctionType* sig = func->getSignature();
         auto argInfo = sig->getArgs();
 
         if (argInfo.size() != args.size()) {
@@ -854,14 +872,14 @@ namespace codegen {
 
     Value FunctionBuilder::generateCall(
         const Value& func,
-        const bind::Array<Value>& args,
+        const Array<Value>& args,
         const Value& selfPtr
     ) {
         if (func.m_isImm) {
-            return generateCall((bind::Function*)func.m_imm.p, args, selfPtr);
+            return generateCall((Function*)func.m_imm.p, args, selfPtr);
         }
 
-        bind::FunctionType* sig = (bind::FunctionType*)func.m_type;
+        FunctionType* sig = (FunctionType*)func.m_type;
         auto argInfo = sig->getArgs();
 
         if (argInfo.size() != args.size()) {
@@ -885,15 +903,15 @@ namespace codegen {
         return result;
     }
 
-    bind::Function* FunctionBuilder::getFunction() const {
+    Function* FunctionBuilder::getFunction() const {
         return m_function;
     }
 
-    bind::Array<Instruction>& FunctionBuilder::getCode() {
+    Array<Instruction>& FunctionBuilder::getCode() {
         return m_code;
     }
 
-    const bind::Array<Instruction>& FunctionBuilder::getCode() const {
+    const Array<Instruction>& FunctionBuilder::getCode() const {
         return m_code;
     }
 
@@ -911,7 +929,12 @@ namespace codegen {
         return ret;
     }
 
-    Value FunctionBuilder::val(bind::DataType* tp) { return Value(m_nextReg++, this, tp); }
+    Value FunctionBuilder::val(DataType* tp) { return Value(m_nextReg++, this, tp); }
+    Value FunctionBuilder::val(ValuePointer* value) {
+        Value ret = Value(m_nextReg++, this, (DataType*)value->getType()->getPointerType());
+        valuePtr(ret, value);
+        return ret;
+    }
     Value FunctionBuilder::val(bool imm) { return Value(this, imm); }
     Value FunctionBuilder::val(u8   imm) { return Value(this, imm); }
     Value FunctionBuilder::val(u16  imm) { return Value(this, imm); }

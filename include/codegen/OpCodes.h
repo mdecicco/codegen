@@ -38,6 +38,11 @@ namespace codegen {
         // Operand 0 will be u32 imm for allocation ID
         stack_free,
 
+        // Gets a pointer to a global value by ID
+        // Operand 0 will be vreg which will receive the pointer
+        // Operand 1 will be u64 imm for the value ID
+        value_ptr,
+
         // Reserves a virtual register which will be assigned later via resolve
         // This instruction counts as an assignment. The reserve/resolve instructions
         // exist exclusively to influence code optimization and register allocation.

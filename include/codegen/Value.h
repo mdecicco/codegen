@@ -39,7 +39,7 @@ namespace codegen {
             bool isLabel() const;
             bool isEmpty() const;
 
-            Value convertedTo(bind::DataType* to) const;
+            Value convertedTo(DataType* to) const;
 
             Value operator +  (const Value& rhs) const;
             Value operator += (const Value& rhs) const;
@@ -93,7 +93,7 @@ namespace codegen {
         
         protected:
             friend class FunctionBuilder;
-            Value(vreg_id regId, FunctionBuilder* func, bind::DataType* type);
+            Value(vreg_id regId, FunctionBuilder* func, DataType* type);
             
             Value genBinaryOp(
                 const Value& rhs,
@@ -117,7 +117,7 @@ namespace codegen {
             ) const;
 
             FunctionBuilder* m_owner;
-            bind::DataType* m_type;
+            DataType* m_type;
             bool m_isImm;
             bool m_isLabel;
             vreg_id m_regId;
