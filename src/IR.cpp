@@ -137,8 +137,8 @@ namespace codegen {
         return *this;
     }
 
-    bind::String Instruction::toString() const {
-        return bind::String();
+    String Instruction::toString() const {
+        return String();
     }
 
     const opInfo& Instruction::Info(OpCode code) {

@@ -2,8 +2,8 @@
 #include <codegen/types.h>
 #include <codegen/Immediate.h>
 #include <codegen/OpCodes.h>
-#include <bind/util/String.h>
-#include <bind/util/Array.h>
+#include <utils/String.h>
+#include <utils/Array.h>
 
 namespace bind {
     class DataType;
@@ -71,7 +71,7 @@ namespace codegen {
             Value operator >  (const Value& rhs) const;
             Value operator >= (const Value& rhs) const;
             Value operator [] (const Value& rhs) const;
-            Value operator () (const bind::Array<Value>& args, Value* self) const;
+            Value operator () (const Array<Value>& args, Value* self) const;
             Value operator -  () const;
             Value operator -- () const;
             Value operator -- (int) const;
@@ -89,7 +89,7 @@ namespace codegen {
 
             bool isEquivalentTo(const Value& v) const;
 
-            bind::String toString() const;
+            String toString() const;
         
         protected:
             friend class FunctionBuilder;

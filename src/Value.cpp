@@ -1,7 +1,7 @@
 #include <codegen/Value.h>
 #include <codegen/FunctionBuilder.h>
 #include <bind/Registry.hpp>
-#include <bind/util/Array.hpp>
+#include <utils/Array.hpp>
 #include <bind/Function.h>
 
 namespace codegen {

@@ -2,7 +2,7 @@
 #include <codegen/types.h>
 #include <codegen/Value.h>
 #include <codegen/OpCodes.h>
-#include <bind/util/String.h>
+#include <utils/String.h>
 
 namespace codegen {
     enum class OperandType : u8 {
@@ -62,7 +62,7 @@ namespace codegen {
             bool involves(vreg_id reg, bool excludeAssignment = false) const;
 
             Instruction& operator =(const Instruction& rhs);
-            bind::String toString() const;
+            String toString() const;
 
             static const opInfo& Info(OpCode code);
     };

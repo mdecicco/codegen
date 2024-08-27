@@ -3,7 +3,7 @@
 #include <codegen/IR.h>
 #include <codegen/interfaces/IWithLogging.h>
 
-#include <bind/util/Array.h>
+#include <utils/Array.h>
 
 namespace bind {
     class DataType;
@@ -136,23 +136,23 @@ namespace codegen {
 
             Value generateCall(
                 FunctionBuilder* func,
-                const bind::Array<Value>& args = bind::Array<Value>(),
+                const Array<Value>& args = Array<Value>(),
                 const Value& selfPtr = Value()
             );
             Value generateCall(
                 bind::Function* func,
-                const bind::Array<Value>& args = bind::Array<Value>(),
+                const Array<Value>& args = Array<Value>(),
                 const Value& selfPtr = Value()
             );
             Value generateCall(
                 const Value& func,
-                const bind::Array<Value>& args = bind::Array<Value>(),
+                const Array<Value>& args = Array<Value>(),
                 const Value& selfPtr = Value()
             );
 
             bind::Function* getFunction() const;
-            bind::Array<Instruction>& getCode();
-            const bind::Array<Instruction>& getCode() const;
+            Array<Instruction>& getCode();
+            const Array<Instruction>& getCode() const;
 
             stack_id getNextAllocId() const;
             stack_id reserveAllocId();
@@ -177,7 +177,7 @@ namespace codegen {
 
             bind::Function* m_function;
             FunctionBuilder* m_parent;
-            bind::Array<Instruction> m_code;
+            Array<Instruction> m_code;
             label_id m_nextLabel;
             vreg_id m_nextReg;
             stack_id m_nextAlloc;
