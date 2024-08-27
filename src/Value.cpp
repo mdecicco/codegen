@@ -7,7 +7,7 @@
 namespace codegen {
     using namespace bind;
     
-    Value::Value() : m_owner(nullptr), m_type(nullptr), m_isImm(false), m_isLabel(false), m_regId(NullRegister) {}
+    Value::Value() : m_owner(nullptr), m_type(Registry::GetType<void>()), m_isImm(false), m_isLabel(false), m_regId(NullRegister) {}
     Value::Value(const Value& v) : m_owner(v.m_owner), m_type(v.m_type), m_isImm(v.m_isImm), m_isLabel(v.m_isLabel), m_regId(v.m_regId), m_imm(v.m_imm) {}
     Value::Value(FunctionBuilder* func, bool imm) : m_owner(func), m_type(Registry::GetType<bool>()), m_isImm(true), m_isLabel(false), m_regId(NullRegister), m_imm(imm) {}
     Value::Value(FunctionBuilder* func, u8   imm) : m_owner(func), m_type(Registry::GetType<u8  >()), m_isImm(true), m_isLabel(false), m_regId(NullRegister), m_imm(imm) {}

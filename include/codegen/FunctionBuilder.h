@@ -2,6 +2,8 @@
 #include <codegen/types.h>
 #include <codegen/IR.h>
 #include <codegen/interfaces/IWithLogging.h>
+#include <codegen/SourceLocation.h>
+#include <codegen/SourceMap.h>
 
 #include <utils/Array.h>
 
@@ -154,13 +156,6 @@ namespace codegen {
                 const Value& selfPtr = Value()
             );
 
-            Function* getFunction() const;
-            Array<Instruction>& getCode();
-            const Array<Instruction>& getCode() const;
-
-            stack_id getNextAllocId() const;
-            stack_id reserveAllocId();
-
             Value label(label_id label);
             Value val(DataType* tp);
             Value val(ValuePointer* value);
@@ -177,6 +172,16 @@ namespace codegen {
             Value val(f64 imm);
             Value val(ptr imm);
 
+            Function* getFunction() const;
+            Array<Instruction>& getCode();
+            const Array<Instruction>& getCode() const;
+
+            stack_id getNextAllocId() const;
+            stack_id reserveAllocId();
+            void setCurrentSourceLocation(const SourceLocation& src);
+            const SourceMap* getSourceMap() const;
+            void enableValidation();
+
         protected:
             friend class InstructionRef;
 
@@ -186,5 +191,8 @@ namespace codegen {
             label_id m_nextLabel;
             vreg_id m_nextReg;
             stack_id m_nextAlloc;
+            SourceLocation m_currentSrcLoc;
+            SourceMap m_srcMap;
+            bool m_validationEnabled;
     };
 };
