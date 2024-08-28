@@ -9,6 +9,9 @@ namespace codegen {
         { "stack_ptr"     , 2, { OperandType::Register , OperandType::Immediate, OperandType::Unused    }, 0   , 0, 0, 0, 0 },
         { "stack_free"    , 1, { OperandType::Immediate, OperandType::Unused   , OperandType::Unused    }, 0xFF, 0, 0, 0, 0 },
         { "value_ptr"     , 2, { OperandType::Register , OperandType::Immediate, OperandType::Unused    }, 0   , 0, 0, 0, 0 },
+        { "this_ptr"      , 1, { OperandType::Register , OperandType::Unused   , OperandType::Unused    }, 0   , 0, 0, 0, 0 },
+        { "ret_ptr"       , 1, { OperandType::Register , OperandType::Unused   , OperandType::Unused    }, 0   , 0, 0, 0, 0 },
+        { "argument"      , 2, { OperandType::Register , OperandType::Immediate, OperandType::Unused    }, 0   , 0, 0, 0, 0 },
         { "reserve"       , 1, { OperandType::Register , OperandType::Unused   , OperandType::Unused    }, 0   , 0, 0, 0, 0 },
         { "resolve"       , 2, { OperandType::Register , OperandType::Value    , OperandType::Unused    }, 0xFF, 0, 0, 0, 0 },
         { "load"          , 3, { OperandType::Register , OperandType::Register , OperandType::Immediate }, 0   , 0, 0, 0, 0 },
@@ -17,7 +20,7 @@ namespace codegen {
         { "cvt"           , 3, { OperandType::Register , OperandType::Value    , OperandType::Immediate }, 0   , 0, 0, 0, 0 },
         { "param"         , 2, { OperandType::Value    , OperandType::Immediate, OperandType::Unused    }, 0xFF, 0, 0, 0, 0 },
         { "call"          , 1, { OperandType::Function , OperandType::Unused   , OperandType::Unused    }, 0xFF, 1, 0, 0, 0 },
-        { "ret"           , 0, { OperandType::Unused   , OperandType::Unused   , OperandType::Unused    }, 0xFF, 0, 0, 0, 0 },
+        { "ret"           , 1, { OperandType::Value    , OperandType::Unused   , OperandType::Unused    }, 0xFF, 0, 0, 0, 0 },
         { "branch"        , 3, { OperandType::Register , OperandType::Label    , OperandType::Label     }, 0xFF, 0, 0, 0, 0 },
         
         { "_not"          , 2, { OperandType::Register , OperandType::Value    , OperandType::Unused    }, 0   , 0, 0, 0, 0 },

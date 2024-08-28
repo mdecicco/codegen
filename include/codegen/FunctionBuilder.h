@@ -44,6 +44,9 @@ namespace codegen {
             InstructionRef stackFree(stack_id alloc);
             InstructionRef valuePtr(const Value& reg, symbol_id id);
             InstructionRef valuePtr(const Value& reg, ValuePointer* sym);
+            InstructionRef thisPtr(const Value& reg);
+            InstructionRef retPtr(const Value& reg);
+            InstructionRef argument(const Value& reg, u32 argIndex);
             InstructionRef reserve(const Value& reg);
             InstructionRef resolve(const Value& reg, const Value& assignTo);
             InstructionRef load(const Value& dest, const Value& src, u32 offset = 0);
@@ -55,7 +58,7 @@ namespace codegen {
             InstructionRef call(FunctionBuilder* func, const Value& retDest = Value(), const Value& selfPtr = Value());
             InstructionRef call(Function* func, const Value& retDest = Value(), const Value& selfPtr = Value());
             InstructionRef call(const Value& func, const Value& retDest = Value(), const Value& selfPtr = Value());
-            InstructionRef ret();
+            InstructionRef ret(const Value& val = Value());
             InstructionRef branch(const Value& cond, label_id destOnFalse);
         
             InstructionRef _not(const Value& result, const Value& val);
@@ -145,16 +148,22 @@ namespace codegen {
                 const Array<Value>& args = Array<Value>(),
                 const Value& selfPtr = Value()
             );
+            
             Value generateCall(
                 Function* func,
                 const Array<Value>& args = Array<Value>(),
                 const Value& selfPtr = Value()
             );
+            
             Value generateCall(
                 const Value& func,
                 const Array<Value>& args = Array<Value>(),
                 const Value& selfPtr = Value()
             );
+
+            void generateConstruction(const Value& destPtr, const Array<Value>& args);
+
+            void generateReturn(const Value& val = Value());
 
             Value label(label_id label);
             Value val(DataType* tp);
@@ -175,6 +184,9 @@ namespace codegen {
             Function* getFunction() const;
             Array<Instruction>& getCode();
             const Array<Instruction>& getCode() const;
+            Value getThis() const;
+            Value getArg(u32 index) const;
+            Value getRetPtr();
 
             stack_id getNextAllocId() const;
             stack_id reserveAllocId();
@@ -185,6 +197,8 @@ namespace codegen {
         protected:
             friend class InstructionRef;
 
+            void emitPrologue();
+
             Function* m_function;
             FunctionBuilder* m_parent;
             Array<Instruction> m_code;
@@ -194,5 +208,8 @@ namespace codegen {
             SourceLocation m_currentSrcLoc;
             SourceMap m_srcMap;
             bool m_validationEnabled;
+
+            Value m_thisPtr;
+            Array<Value> m_args;
     };
 };

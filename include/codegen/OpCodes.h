@@ -43,6 +43,32 @@ namespace codegen {
         // Operand 1 will be u64 imm for the value ID
         value_ptr,
 
+        // Gets a pointer to the current method's 'this' object
+        // This must be the first emitted instruction if present
+        //
+        // Operand 0 will be vreg which receives the 'this' pointer
+        this_ptr,
+
+        // Gets a pointer to the current function's return value
+        // This instruction should only be emitted if the function
+        // returns on the stack (returns non-void, non-primitive).
+        //
+        // The pointer will point to uninitialized memory and may
+        // need to be constructed prior to returning
+        //
+        // Operand 0 will be vreg which receives a pointer to the
+        // return value
+        ret_ptr,
+
+        // Gets an argument of the current function at a given index
+        // This instruction must not be used after any other type of instruction
+        // (excluding this_ptr) has been emitted, and this instruction must not be
+        // emitted twice for the same argument
+        //
+        // Operand 0 will be vreg which receives the argument
+        // Operand 1 will be u32 imm for the argument index
+        argument,
+
         // Reserves a virtual register which will be assigned later via resolve
         // This instruction counts as an assignment. The reserve/resolve instructions
         // exist exclusively to influence code optimization and register allocation.
@@ -118,8 +144,9 @@ namespace codegen {
 
         // Returns from the current function
         //
-        // All functions return via output parameters, so this instruction
-        // needs no operand
+        // (optional) Operand 0 will be the return value, if primitive. If not
+        // primitive then the return value will need to be constructed at the
+        // pointer given by the ret_ptr instruction
         ret,
 
         // Branches to one of two labels based on the value of a vreg

@@ -13,6 +13,7 @@ namespace codegen {
         m_nextAlloc(1), m_currentSrcLoc({ 0, 0, 0, 0, 0, 0, 0 }),
         m_validationEnabled(false)
     {
+        emitPrologue();
     }
 
     FunctionBuilder::FunctionBuilder(Function* func, FunctionBuilder* parent)
@@ -20,6 +21,7 @@ namespace codegen {
         m_nextAlloc(1), m_currentSrcLoc({ 0, 0, 0, 0, 0, 0, 0 }),
         m_validationEnabled(false)
     {
+        emitPrologue();
     }
 
     FunctionBuilder::~FunctionBuilder() {
@@ -98,6 +100,83 @@ namespace codegen {
         Instruction i(OpCode::value_ptr);
         i.operands[0].reset(reg);
         i.operands[1].reset(val(sym->getSymbolId()));
+        return add(i);
+    }
+
+    InstructionRef FunctionBuilder::thisPtr(const Value& reg) {
+        if (m_validationEnabled) {
+            if (m_code.size() > 0) {
+                throw Exception("FunctionBuilder::thisPtr - this_ptr instruction should be the first emitted instruction");
+            }
+
+            if (!reg.isReg()) {
+                throw Exception("FunctionBuilder::thisPtr - destination value should refer to a register");
+            }
+
+            
+            FunctionType* sig = m_function->getSignature();
+            DataType* thisTp = sig->getThisType();
+
+            if (!thisTp) {
+                throw Exception("FunctionBuilder::thisPtr - function does not have a 'this' pointer");
+            }
+
+            if (!thisTp->isEqualTo(reg.m_type)) {
+                throw Exception("FunctionBuilder::thisPtr - destination value should have the same type as the function's 'this' pointer");
+            }
+        }
+
+        Instruction i(OpCode::this_ptr);
+        i.operands[0].reset(reg);
+        return add(i);
+    }
+
+    InstructionRef FunctionBuilder::retPtr(const Value& reg) {
+        if (m_validationEnabled) {
+            DataType* retTp = m_function->getSignature()->getReturnType();
+            auto info = retTp->getInfo();
+            if (info.size == 0 || info.is_primitive) {
+                throw Exception("FunctionBuilder::retPtr - function does not return on the stack, there is no return pointer");
+            }
+
+            if (!reg.m_type->isEqualTo(retTp->getPointerType())) {
+                throw Exception("FunctionBuilder::retPtr - destination value should have a type that points to the function's return type");
+            }
+        }
+        
+        Instruction i(OpCode::ret_ptr);
+        i.operands[0].reset(reg);
+        return add(i);
+    }
+
+    InstructionRef FunctionBuilder::argument(const Value& reg, u32 argIndex) {
+        if (m_validationEnabled) {
+            for (u32 i = 0;i < m_code.size();i++) {
+                if (m_code[i].op == OpCode::this_ptr) continue;
+                if (m_code[i].op != OpCode::argument) {
+                    throw Exception("FunctionBuilder::argument - argument instruction should be emitted before any other type of instruction (excluding this_ptr)");
+                }
+
+                if (u32(m_code[i].operands[1].getImm()) == argIndex) {
+                    throw Exception("FunctionBuilder::argument - specified argument index has already been used with the argument instruction");
+                }
+            }
+
+            FunctionType* sig = m_function->getSignature();
+            auto args = sig->getArgs();
+
+            if (argIndex >= args.size()) {
+                throw Exception("FunctionBuilder::argument - specified argument index is greater than this function's argument count");
+            }
+
+            if (!args[argIndex].type->isEqualTo(reg.m_type)) {
+                throw Exception("FunctionBuilder::argument - destination value should have the same type as the specified argument");
+            }
+        }
+
+        Instruction i(OpCode::argument);
+        i.operands[0].reset(reg);
+        i.operands[1].reset(val(argIndex));
         return add(i);
     }
 
@@ -295,8 +374,32 @@ namespace codegen {
         return add(i);
     }
 
-    InstructionRef FunctionBuilder::ret() {
+    InstructionRef FunctionBuilder::ret(const Value& val = Value()) {
+        if (m_validationEnabled) {
+            DataType* retTp = m_function->getSignature()->getReturnType();
+            auto retInfo = retTp->getInfo();
+
+            if (retInfo.size == 0) {
+                if (!val.isEmpty()) {
+                    throw Exception("FunctionBuilder::ret - function does not return a value, but a return value was provided");
+                }
+            } else {
+                if (!retInfo.is_primitive) {
+                    if (!val.isEmpty()) {
+                        throw Exception("FunctionBuilder::ret - function returns on the stack, but a return value was provided");
+                    }
+                } else {
+                    if (val.isEmpty()) {
+                        throw Exception("FunctionBuilder::ret - function returns a primitive value, but a return value was not provided");
+                    } else if (!retTp->isEqualTo(val.m_type)) {
+                        throw Exception("FunctionBuilder::ret - provided value should have a type that is equal to the function's return type");
+                    }
+                }
+            }
+        }
+
         Instruction i(OpCode::ret);
+        i.operands[0].reset(val);
         return add(i);
     }
 
@@ -1916,6 +2019,29 @@ namespace codegen {
         return result;
     }
 
+    void FunctionBuilder::generateConstruction(const Value& destPtr, const Array<Value>& args) {
+        // todo
+    }
+
+    void FunctionBuilder::generateReturn(const Value& val) {
+        DataType* retTp = m_function->getSignature()->getReturnType();
+        auto retInfo = retTp->getInfo();
+
+        if (retInfo.size == 0 || retInfo.is_primitive) {
+            ret(val);
+            return;
+        }
+
+        Value ptr = Value(m_nextReg++, this, retTp->getPointerType());
+        retPtr(ptr);
+        generateConstruction(ptr, { val });
+
+        // todo:
+        // deconstruct all stack objects up to this point
+
+        ret();
+    }
+
     Value FunctionBuilder::label(label_id label) {
         Value ret(this, label);
         ret.m_isLabel = true;
@@ -1953,6 +2079,29 @@ namespace codegen {
         return m_code;
     }
 
+    Value FunctionBuilder::getThis() const {
+        return m_thisPtr;
+    }
+
+    Value FunctionBuilder::getArg(u32 index) const {
+        if (index > m_args.size()) {
+            if (m_validationEnabled) {
+                throw Exception("FunctionBuilder::getArg - invalid argument index specified");
+            }
+
+            return Value();
+        }
+
+        return m_args[index];
+    }
+
+    Value FunctionBuilder::getRetPtr() {
+        DataType* retTp = m_function->getSignature()->getReturnType();
+        Value ptr = Value(m_nextReg++, this, retTp->getPointerType());
+        retPtr(ptr);
+        return ptr;
+    }
+
     stack_id FunctionBuilder::getNextAllocId() const {
         return m_nextAlloc;
     }
@@ -1967,5 +2116,22 @@ namespace codegen {
 
     void FunctionBuilder::enableValidation() {
         m_validationEnabled = true;
+    }
+    
+    void FunctionBuilder::emitPrologue() {
+        FunctionType* sig = m_function->getSignature();
+
+        DataType* thisTp = sig->getThisType();
+        if (thisTp) {
+            m_thisPtr.reset(Value(m_nextReg++, this, thisTp));
+            thisPtr(m_thisPtr);
+        }
+
+        auto args = sig->getArgs();
+        for (u32 i = 0;i < args.size();i++) {
+            Value arg = Value(m_nextReg++, this, args[i].type);
+            m_args.push(arg);
+            argument(arg, i);
+        }
     }
 };
