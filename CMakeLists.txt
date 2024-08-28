@@ -37,6 +37,7 @@ macro(add_sources group dir)
 endmacro(add_sources)
 
 add_sources("src"            ".")
+add_sources("src/optimize"   "./optimize")
 add_sources("src/interfaces" "./interfaces")
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)

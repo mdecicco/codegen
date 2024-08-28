@@ -14,6 +14,19 @@ namespace codegen {
         return m_logger;
     }
 
+    void IWithLogging::logDebug(const char* msg, ...) {
+        if (!m_logger) return;
+
+        char buf[1024] = { 0 };
+
+        va_list l;
+        va_start(l, msg);
+        vsnprintf(buf, 1024, msg, l);
+        va_end(l);
+
+        m_logger->onInfo(buf);
+    }
+
     void IWithLogging::logInfo(const char* msg, ...) {
         if (!m_logger) return;
 

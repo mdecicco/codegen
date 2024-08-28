@@ -39,6 +39,14 @@ namespace codegen {
         return m_owner;
     }
 
+    DataType* Value::getType() const {
+        return m_type;
+    }
+    
+    void Value::setType(DataType* type) {
+        m_type = type ? type : Registry::GetType<void>();
+    }
+    
     vreg_id Value::getRegisterId() const {
         return m_regId;
     }

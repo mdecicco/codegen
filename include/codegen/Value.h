@@ -31,6 +31,8 @@ namespace codegen {
 
             void reset(const Value& v);
             FunctionBuilder* getOwner() const;
+            DataType* getType() const;
+            void setType(DataType* type);
             vreg_id getRegisterId() const;
             const Immediate& getImm() const;
             Immediate& getImm();

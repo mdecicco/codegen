@@ -11,6 +11,7 @@ namespace codegen {
             void setLogHandler(ILogHandler* handler);
             ILogHandler* getLogHandler() const;
 
+            void logDebug(const char* msg, ...);
             void logInfo(const char* msg, ...);
             void logWarn(const char* msg, ...);
             void logError(const char* msg, ...);

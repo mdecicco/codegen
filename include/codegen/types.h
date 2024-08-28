@@ -10,6 +10,7 @@ namespace codegen {
     typedef u32         vreg_id;
     typedef u32         label_id;
     typedef u32         stack_id;
+    typedef u32         address;
 
     constexpr vreg_id NullRegister = 0;
     constexpr label_id NullLabel = 0;
