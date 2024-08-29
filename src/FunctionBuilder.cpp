@@ -322,7 +322,20 @@ namespace codegen {
         return ret;
     }
 
-    Value FunctionBuilder::val(DataType* tp) { return Value(m_nextReg++, this, tp); }
+    Value FunctionBuilder::val(DataType* tp) {
+        auto ti = tp->getInfo();
+        if (!ti.is_primitive && !ti.is_pointer) {
+            stack_id id = stackAlloc(ti.size);
+            Value mem = Value(m_nextReg++, this, tp->getPointerType());
+            stackPtr(mem, id);
+
+            m_currentScope->add(id);
+            m_currentScope->add(mem);
+            return mem;
+        }
+
+        return Value(m_nextReg++, this, tp);
+    }
     Value FunctionBuilder::val(ValuePointer* value) {
         Value ret = Value(m_nextReg++, this, (DataType*)value->getType()->getPointerType());
         valuePtr(ret, value);
