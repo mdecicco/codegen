@@ -28,8 +28,9 @@ namespace codegen {
              * @brief Allocates a new label ID and optionally adds it to the code
              * 
              * @param doAddToCode Whether or not the generated label ID should be added to the code
+             * @param name Name of the label
              */
-            label_id label(bool doAddToCode = true);
+            label_id label(bool doAddToCode = true, const String& name = String());
 
             /**
              * @brief Adds a label to the code. Each `label_id` must only be added to the code one time
@@ -858,7 +859,7 @@ namespace codegen {
             template <typename ThenFn>
             std::enable_if_t<std::is_invocable_v<ThenFn>, void>
             generateIf(const Value& cond, ThenFn&& emitThenBody) {
-                label_id afterBody = label(false);
+                label_id afterBody = label(false, "IF_END");
                 branch(cond, afterBody);
                 // if (cond) {
                     emitThenBody();
@@ -876,8 +877,8 @@ namespace codegen {
             template <typename ThenFn, typename ElseFn>
             std::enable_if_t<std::is_invocable_v<ThenFn> && std::is_invocable_v<ElseFn>, void>
             generateIf(const Value& cond, ThenFn&& emitThenBody, ElseFn&& emitElseBody) {
-                label_id elseBody = label(false);
-                label_id afterElse = label(false);
+                label_id elseBody = label(false, "ELSE_BEGIN");
+                label_id afterElse = label(false, "IF_END");
 
                 branch(cond, elseBody);
                 // if (cond) {
@@ -900,11 +901,11 @@ namespace codegen {
              * @param emitBody Function that will emit the code for the loop body
              */
             template <typename CondFn, typename ModifyFn, typename BodyFn>
-            std::enable_if_t<std::is_invocable_v<CondFn> && std::is_invocable_r_v<Value, ModifyFn> && std::is_invocable_v<BodyFn>, void>
+            std::enable_if_t<std::is_invocable_r_v<Value, CondFn> && std::is_invocable_v<ModifyFn> && std::is_invocable_v<BodyFn>, void>
             generateFor(CondFn&& emitCondition, ModifyFn&& emitModifier, BodyFn&& emitBody) {
-                label_id afterLoop = label(false);
-                label_id continueLbl = label(false);
-                label_id loopBegin = label();
+                label_id afterLoop = label(false, "LOOP_END");
+                label_id continueLbl = label(false, "LOOP_CONT");
+                label_id loopBegin = label(true, "LOOP_START");
                 Value cond = emitCondition();
                 branch(cond, afterLoop);
 
@@ -930,8 +931,8 @@ namespace codegen {
             template <typename CondFn, typename BodyFn>
             std::enable_if_t<std::is_invocable_v<CondFn> && std::is_invocable_v<BodyFn>, void>
             generateWhile(CondFn&& emitCondition, BodyFn&& emitBody) {
-                label_id afterLoop = label(false);
-                label_id loopBegin = label();
+                label_id afterLoop = label(false, "LOOP_END");
+                label_id loopBegin = label(true, "LOOP_START");
 
                 branch(emitCondition(), afterLoop);
 
@@ -955,8 +956,8 @@ namespace codegen {
             template <typename BodyFn, typename CondFn>
             std::enable_if_t<std::is_invocable_v<BodyFn> && std::is_invocable_r_v<Value, CondFn>, void>
             generateDoWhile(BodyFn&& emitBody, CondFn&& emitCondition) {
-                label_id loopBegin = label();
-                label_id loopEnd = label(false);
+                label_id loopBegin = label(true, "LOOP_START");
+                label_id loopEnd = label(false, "LOOP_END");
 
                 Scope s(this);
                     s.setLoopContinueLabel(loopBegin);
@@ -1073,6 +1074,10 @@ namespace codegen {
              */
             void enableValidation();
 
+            void setName(Value& v, const String& name);
+            const String& getString(i32 stringId) const;
+            const String& getLabelName(label_id label) const;
+
         protected:
             friend class InstructionRef;
             friend class Scope;
@@ -1080,10 +1085,13 @@ namespace codegen {
             void emitPrologue();
             void enterScope(Scope* s);
             void exitScope(Scope* s);
+            i32 addString(const String& str);
 
             Function* m_function;
             FunctionBuilder* m_parent;
             Array<Instruction> m_code;
+            Array<String> m_strings;
+            std::unordered_map<label_id, u32> m_labelNameStringIds;
             label_id m_nextLabel;
             vreg_id m_nextReg;
             stack_id m_nextAlloc;

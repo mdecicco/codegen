@@ -3,6 +3,7 @@
 #include <bind/DataType.h>
 #include <bind/PointerType.h>
 #include <utils/Exception.h>
+#include <utils/Array.hpp>
 
 namespace codegen {
     Scope::Scope(FunctionBuilder* func)
@@ -144,7 +145,7 @@ namespace codegen {
     void Scope::emitEscapeInstructions() {
         std::unordered_set<stack_id> freedIds;
 
-        for (i64 i = m_stackPointers.size() - 1;i >= 0;i--) {
+        for (i64 i = i64(m_stackPointers.size()) - 1;i >= 0;i--) {
             DataType* tp = ((PointerType*)m_stackPointers[u32(i)].getType())->getDestinationType();
             auto props = tp->getProps();
 

@@ -1,4 +1,5 @@
 #include <codegen/SourceMap.h>
+#include <utils/Array.hpp>
 
 namespace codegen {
     void SourceMap::add(u32 codeIndex, const SourceLocation& src) {

@@ -13,6 +13,8 @@ namespace codegen {
         m_nextAlloc(1), m_currentSrcLoc({ 0, 0, 0, 0, 0, 0, 0 }),
         m_validationEnabled(false), m_ownScope(this), m_currentScope(&m_ownScope)
     {
+        m_strings.reserve(128);
+        addString("");
         emitPrologue();
     }
 
@@ -21,6 +23,8 @@ namespace codegen {
         m_nextAlloc(1), m_currentSrcLoc({ 0, 0, 0, 0, 0, 0, 0 }),
         m_validationEnabled(false), m_ownScope(this), m_currentScope(&m_ownScope)
     {
+        m_strings.reserve(128);
+        addString("");
         emitPrologue();
     }
 
@@ -388,18 +392,46 @@ namespace codegen {
         m_validationEnabled = true;
     }
     
+    void FunctionBuilder::setName(Value& v, const String& name) {
+        v.m_nameStringId = addString(name);
+        if (v.isReg()) {
+            for (u32 i = 0;i < m_code.size();i++) {
+                for (u32 o = 0;o < 3;o++) {
+                    auto& op = m_code[i].operands[o];
+                    if (op.isReg() && op.m_regId == v.m_regId) {
+                        op.m_nameStringId = v.m_nameStringId;
+                    }
+                }
+            }
+        }
+    }
+    
+    const String& FunctionBuilder::getString(i32 stringId) const {
+        if (stringId < 0 || u32(stringId) > m_strings.size()) return m_strings[0];
+
+        return m_strings[stringId];
+    }
+    
+    const String& FunctionBuilder::getLabelName(label_id label) const {
+        auto it = m_labelNameStringIds.find(label);
+        if (it == m_labelNameStringIds.end()) return m_strings[0];
+        return m_strings[it->second];
+    }
+    
     void FunctionBuilder::emitPrologue() {
         FunctionType* sig = m_function->getSignature();
 
         DataType* thisTp = sig->getThisType();
         if (thisTp) {
             m_thisPtr.reset(Value(m_nextReg++, this, thisTp));
+            m_thisPtr.setName("this");
             thisPtr(m_thisPtr);
         }
 
         auto args = sig->getArgs();
         for (u32 i = 0;i < args.size();i++) {
             Value arg = Value(m_nextReg++, this, args[i].type);
+            arg.setName(String::Format("param_%d", i));
             m_args.push(arg);
             argument(arg, i);
         }
@@ -411,5 +443,10 @@ namespace codegen {
 
     void FunctionBuilder::exitScope(Scope* s) {
         m_currentScope = m_currentScope->m_parent;
+    }
+
+    i32 FunctionBuilder::addString(const String& str) {
+        m_strings.push(str);
+        return i32(m_strings.size() - 1);
     }
 };

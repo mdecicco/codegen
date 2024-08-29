@@ -8,8 +8,13 @@
 #include <utils/Exception.h>
 
 namespace codegen {
-    label_id FunctionBuilder::label(bool doAddToCode) {
+    label_id FunctionBuilder::label(bool doAddToCode, const String& name) {
         label_id id = m_nextLabel++;
+
+        if (name.size() > 0) {
+            i32 nameId = addString(name);
+            m_labelNameStringIds.insert(std::pair<label_id, u32>(id, u32(nameId)));
+        }
         
         if (doAddToCode) {
             Instruction i(OpCode::label);
@@ -265,9 +270,9 @@ namespace codegen {
             }
 
             auto args = sig->getArgs();
-            i32 paramIdx = args.size() - 1;
+            i32 paramIdx = i32(args.size()) - 1;
             u32 foundCount = 0;
-            for (i32 i = m_code.size() - 1;i >= 0 && paramIdx >= 0;i--) {
+            for (i32 i = i32(m_code.size()) - 1;i >= 0 && paramIdx >= 0;i--) {
                 if (m_code[i].op == OpCode::call) break;
                 if (m_code[i].op == OpCode::param) {
                     DataType* expect = args[paramIdx].type;
@@ -313,9 +318,9 @@ namespace codegen {
             }
 
             auto args = sig->getArgs();
-            i32 paramIdx = args.size() - 1;
+            i32 paramIdx = i32(args.size() - 1);
             u32 foundCount = 0;
-            for (i32 i = m_code.size() - 1;i >= 0 && paramIdx >= 0;i--) {
+            for (i32 i = i32(m_code.size() - 1);i >= 0 && paramIdx >= 0;i--) {
                 if (m_code[i].op == OpCode::call) break;
                 if (m_code[i].op == OpCode::param) {
                     DataType* expect = args[paramIdx].type;

@@ -41,6 +41,8 @@ namespace codegen {
             bool isReg() const;
             bool isLabel() const;
             bool isEmpty() const;
+            void setName(const String& name);
+            const String& getName() const;
 
             Value convertedTo(DataType* to) const;
 
@@ -126,5 +128,6 @@ namespace codegen {
             vreg_id m_regId;
             stack_id m_stackRef;
             Immediate m_imm;
+            i32 m_nameStringId;
     };
 };

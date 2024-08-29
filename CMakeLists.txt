@@ -13,7 +13,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
 set(
     codegen_include_dirs
     ${CMAKE_CURRENT_SOURCE_DIR}/deps/bind/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/deps/utils/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/deps/bind/deps/utils/include
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
@@ -43,16 +43,15 @@ add_sources("src/interfaces" "./interfaces")
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 include_directories(${codegen_include_dirs})
+link_directories(
+    ${CMAKE_CURRENT_SOURCE_DIR}/deps/bind/lib
+    ${CMAKE_CURRENT_SOURCE_DIR}/deps/bind/deps/utils/lib
+)
 
-if (NOT TARGET utils)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/deps/utils)
-endif()
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/deps/bind)
 
 add_library(codegen ${all_sources})
-target_link_libraries(codegen bind utils)
-
-add_subdirectory("./test")
-add_subdirectory("./deps/bind")
+target_link_libraries(codegen bind)
 
 if (CMAKE_VERSION VERSION_GREATER 3.7.8)
     if (MSVC_IDE)
@@ -68,3 +67,5 @@ if (CMAKE_VERSION VERSION_GREATER 3.7.8)
         )
     endif()
 endif()
+
+add_subdirectory("./test")

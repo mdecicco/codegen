@@ -1,5 +1,8 @@
 #include <codegen/IR.h>
 #include <codegen/FunctionBuilder.h>
+#include <bind/Registry.h>
+#include <bind/DataType.h>
+#include <bind/ValuePointer.h>
 
 namespace codegen {
     constexpr opInfo opcodeInfo[] = {
@@ -22,7 +25,7 @@ namespace codegen {
         { "param"         , 2, { OperandType::Value    , OperandType::Immediate, OperandType::Unused    }, 0xFF, 0, 0, 0, 0 },
         { "call"          , 1, { OperandType::Function , OperandType::Unused   , OperandType::Unused    }, 0xFF, 1, 0, 0, 0 },
         { "ret"           , 1, { OperandType::Value    , OperandType::Unused   , OperandType::Unused    }, 0xFF, 0, 0, 0, 0 },
-        { "branch"        , 3, { OperandType::Register , OperandType::Label    , OperandType::Label     }, 0xFF, 0, 0, 0, 0 },
+        { "branch"        , 2, { OperandType::Register , OperandType::Label    , OperandType::Label     }, 0xFF, 0, 0, 0, 0 },
         
         { "_not"          , 2, { OperandType::Register , OperandType::Value    , OperandType::Unused    }, 0   , 0, 0, 0, 0 },
         { "inv"           , 2, { OperandType::Register , OperandType::Value    , OperandType::Unused    }, 0   , 0, 0, 0, 0 },
@@ -107,7 +110,29 @@ namespace codegen {
         { "dneq"          , 3, { OperandType::Register , OperandType::Value    , OperandType::Value     }, 0   , 0, 0, 0, 0 }
     };
 
-    
+    String getPropPath(DataType* tp, u32 offset) {
+        auto& props = tp->getProps();
+
+        for (u32 i = 0;i < props.size();i++) {
+            auto& p = props[i];
+            if (p.offset == -1) continue;
+            u32 pOff = u32(p.offset);
+
+            if (pOff == offset && (p.type->getInfo().is_primitive || p.type->getInfo().is_pointer)) {
+                return p.name;
+            }
+            
+            if (pOff <= offset && pOff + p.type->getInfo().size > offset && p.type->getInfo().is_pointer == 0) {
+                utils::String path = getPropPath(p.type, offset - u32(pOff));
+                if (path.size() > 0) return p.name + "." + path;
+            }
+        }
+
+        return "";
+    }
+
+
+
     Instruction::Instruction() : op(OpCode::noop) {
     }
 
@@ -143,7 +168,61 @@ namespace codegen {
     }
 
     String Instruction::toString() const {
-        return String();
+        auto& info = opcodeInfo[u32(op)];
+        utils::String s = info.name;
+        for (u8 o = 0;o < info.operandCount;o++) {
+            if (op == OpCode::cvt && o == 2 && operands[2].isImm()) {
+                DataType* tp = Registry::GetType(operands[2].getImm());
+                if (tp) s += String::Format(" <Type %s>", tp->getFullName().c_str());
+                else s += " <Invalid Type ID>";
+                continue;
+            } else if (op == OpCode::value_ptr) {
+                if (o == 1 && operands[1].isImm() && operands[2].isImm()) {
+                    ValuePointer* p = Registry::GetValue(operands[1].getImm());
+                    if (p) s += String::Format(" <Global '%s'>", p->getFullName().c_str());
+                    else s += " <Invalid Value ID>";
+                    break;
+                }
+            } else if ((op == OpCode::load || op == OpCode::store) && o == 1 && !operands[2].isEmpty() && operands[2].isImm()) {
+                s += String(" ") + operands[2].toString() + "(" + operands[1].toString() + ")";
+                break;
+            }
+
+            s += String(" ") + operands[o].toString();
+        }
+
+        bool commentStarted = false;
+
+        if (op == OpCode::uadd && operands[1].isReg() && operands[2].isImm() && operands[2].getType()->getInfo().is_integral) {
+            // Is likely a property offset
+            u32 offset = operands[2].getImm();
+            utils::String path = getPropPath(operands[1].getType(), offset);
+
+            if (path.size() > 0) {
+                // Yup
+                s += String(" ; ") + operands[1].getType()->getFullName() + "." + path;
+                commentStarted = true;
+            }
+        } else if (op == OpCode::load || op == OpCode::store) {
+            // Is likely a property offset
+            u32 offset = 0;
+            if (!operands[2].isEmpty() && operands[2].isImm()) offset = operands[2].getImm();
+            utils::String path = getPropPath(operands[1].getType(), offset);
+
+            if (path.size() > 0) {
+                // Yup
+                s += String(" ; ") + operands[1].getType()->getFullName() + "." + path;
+                commentStarted = true;
+            }
+        }
+
+        // if (comment.size() > 0) {
+        //     if (!commentStarted) s += " ; ";
+        //     else s += ", ";
+        //     s += comment;
+        // }
+
+        return s;
     }
 
     const opInfo& Instruction::Info(OpCode code) {

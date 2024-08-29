@@ -7,32 +7,178 @@
 namespace codegen {
     using namespace bind;
     
-    Value::Value() : m_owner(nullptr), m_type(Registry::GetType<void>()), m_isImm(false), m_isLabel(false), m_regId(NullRegister), m_stackRef(NullStack) {}
-    Value::Value(const Value& v) : m_owner(v.m_owner), m_type(v.m_type), m_isImm(v.m_isImm), m_isLabel(v.m_isLabel), m_regId(v.m_regId), m_stackRef(v.m_stackRef), m_imm(v.m_imm) {}
-    Value::Value(FunctionBuilder* func, bool imm) : m_owner(func), m_type(Registry::GetType<bool>()), m_isImm(true), m_isLabel(false), m_regId(NullRegister), m_stackRef(NullStack), m_imm(imm) {}
-    Value::Value(FunctionBuilder* func, u8   imm) : m_owner(func), m_type(Registry::GetType<u8  >()), m_isImm(true), m_isLabel(false), m_regId(NullRegister), m_stackRef(NullStack), m_imm(imm) {}
-    Value::Value(FunctionBuilder* func, u16  imm) : m_owner(func), m_type(Registry::GetType<u16 >()), m_isImm(true), m_isLabel(false), m_regId(NullRegister), m_stackRef(NullStack), m_imm(imm) {}
-    Value::Value(FunctionBuilder* func, u32  imm) : m_owner(func), m_type(Registry::GetType<u32 >()), m_isImm(true), m_isLabel(false), m_regId(NullRegister), m_stackRef(NullStack), m_imm(imm) {}
-    Value::Value(FunctionBuilder* func, u64  imm) : m_owner(func), m_type(Registry::GetType<u64 >()), m_isImm(true), m_isLabel(false), m_regId(NullRegister), m_stackRef(NullStack), m_imm(imm) {}
-    Value::Value(FunctionBuilder* func, i8   imm) : m_owner(func), m_type(Registry::GetType<i8  >()), m_isImm(true), m_isLabel(false), m_regId(NullRegister), m_stackRef(NullStack), m_imm(imm) {}
-    Value::Value(FunctionBuilder* func, i16  imm) : m_owner(func), m_type(Registry::GetType<i16 >()), m_isImm(true), m_isLabel(false), m_regId(NullRegister), m_stackRef(NullStack), m_imm(imm) {}
-    Value::Value(FunctionBuilder* func, i32  imm) : m_owner(func), m_type(Registry::GetType<i32 >()), m_isImm(true), m_isLabel(false), m_regId(NullRegister), m_stackRef(NullStack), m_imm(imm) {}
-    Value::Value(FunctionBuilder* func, i64  imm) : m_owner(func), m_type(Registry::GetType<i64 >()), m_isImm(true), m_isLabel(false), m_regId(NullRegister), m_stackRef(NullStack), m_imm(imm) {}
-    Value::Value(FunctionBuilder* func, f32  imm) : m_owner(func), m_type(Registry::GetType<f32 >()), m_isImm(true), m_isLabel(false), m_regId(NullRegister), m_stackRef(NullStack), m_imm(imm) {}
-    Value::Value(FunctionBuilder* func, f64  imm) : m_owner(func), m_type(Registry::GetType<f64 >()), m_isImm(true), m_isLabel(false), m_regId(NullRegister), m_stackRef(NullStack), m_imm(imm) {}
-    Value::Value(FunctionBuilder* func, ptr  imm) : m_owner(func), m_type(Registry::GetType<ptr >()), m_isImm(true), m_isLabel(false), m_regId(NullRegister), m_stackRef(NullStack), m_imm(imm) {}
-    Value::Value(
-        vreg_id regId,
-        FunctionBuilder* func,
-        DataType* type
-    ) : m_owner(func), m_type(type), m_isImm(false), m_isLabel(false), m_regId(regId), m_stackRef(NullStack) {}
+    Value::Value() {
+        m_owner = nullptr;
+        m_type = Registry::GetType<void>();
+        m_isImm = false;
+        m_isLabel = false;
+        m_regId = NullRegister;
+        m_stackRef = NullStack;
+        m_nameStringId = -1;
+    }
+
+    Value::Value(const Value& v) {
+        m_owner = v.m_owner;
+        m_type = v.m_type;
+        m_isImm = v.m_isImm;
+        m_isLabel = v.m_isLabel;
+        m_regId = v.m_regId;
+        m_stackRef = v.m_stackRef;
+        m_imm = v.m_imm;
+        m_nameStringId = v.m_nameStringId;
+    }
+
+    Value::Value(vreg_id regId, FunctionBuilder* func, DataType* type) {
+        m_owner = func;
+        m_type = type;
+        m_isImm = false;
+        m_isLabel = false;
+        m_regId = regId;
+        m_stackRef = NullStack;
+        m_nameStringId = -1;
+    }
+
+    Value::Value(FunctionBuilder* func, bool imm) {
+        m_owner = func;
+        m_type = Registry::GetType<bool>();
+        m_isImm = true;
+        m_isLabel = false;
+        m_regId = NullRegister;
+        m_stackRef = NullStack;
+        m_imm = imm;
+        m_nameStringId = -1;
+    }
+    
+    Value::Value(FunctionBuilder* func, u8   imm) {
+        m_owner = func;
+        m_type = Registry::GetType<u8  >();
+        m_isImm = true;
+        m_isLabel = false;
+        m_regId = NullRegister;
+        m_stackRef = NullStack;
+        m_imm = imm;
+        m_nameStringId = -1;
+    }
+    
+    Value::Value(FunctionBuilder* func, u16  imm) {
+        m_owner = func;
+        m_type = Registry::GetType<u16 >();
+        m_isImm = true;
+        m_isLabel = false;
+        m_regId = NullRegister;
+        m_stackRef = NullStack;
+        m_imm = imm;
+        m_nameStringId = -1;
+    }
+    
+    Value::Value(FunctionBuilder* func, u32  imm) {
+        m_owner = func;
+        m_type = Registry::GetType<u32 >();
+        m_isImm = true;
+        m_isLabel = false;
+        m_regId = NullRegister;
+        m_stackRef = NullStack;
+        m_imm = imm;
+        m_nameStringId = -1;
+    }
+    
+    Value::Value(FunctionBuilder* func, u64  imm) {
+        m_owner = func;
+        m_type = Registry::GetType<u64 >();
+        m_isImm = true;
+        m_isLabel = false;
+        m_regId = NullRegister;
+        m_stackRef = NullStack;
+        m_imm = imm;
+        m_nameStringId = -1;
+    }
+    
+    Value::Value(FunctionBuilder* func, i8   imm) {
+        m_owner = func;
+        m_type = Registry::GetType<i8  >();
+        m_isImm = true;
+        m_isLabel = false;
+        m_regId = NullRegister;
+        m_stackRef = NullStack;
+        m_imm = imm;
+        m_nameStringId = -1;
+    }
+    
+    Value::Value(FunctionBuilder* func, i16  imm) {
+        m_owner = func;
+        m_type = Registry::GetType<i16 >();
+        m_isImm = true;
+        m_isLabel = false;
+        m_regId = NullRegister;
+        m_stackRef = NullStack;
+        m_imm = imm;
+        m_nameStringId = -1;
+    }
+    
+    Value::Value(FunctionBuilder* func, i32  imm) {
+        m_owner = func;
+        m_type = Registry::GetType<i32 >();
+        m_isImm = true;
+        m_isLabel = false;
+        m_regId = NullRegister;
+        m_stackRef = NullStack;
+        m_imm = imm;
+        m_nameStringId = -1;
+    }
+    
+    Value::Value(FunctionBuilder* func, i64  imm) {
+        m_owner = func;
+        m_type = Registry::GetType<i64 >();
+        m_isImm = true;
+        m_isLabel = false;
+        m_regId = NullRegister;
+        m_stackRef = NullStack;
+        m_imm = imm;
+        m_nameStringId = -1;
+    }
+    
+    Value::Value(FunctionBuilder* func, f32  imm) {
+        m_owner = func;
+        m_type = Registry::GetType<f32 >();
+        m_isImm = true;
+        m_isLabel = false;
+        m_regId = NullRegister;
+        m_stackRef = NullStack;
+        m_imm = imm;
+        m_nameStringId = -1;
+    }
+    
+    Value::Value(FunctionBuilder* func, f64  imm) {
+        m_owner = func;
+        m_type = Registry::GetType<f64 >();
+        m_isImm = true;
+        m_isLabel = false;
+        m_regId = NullRegister;
+        m_stackRef = NullStack;
+        m_imm = imm;
+        m_nameStringId = -1;
+    }
+    
+    Value::Value(FunctionBuilder* func, ptr  imm) {
+        m_owner = func;
+        m_type = Registry::GetType<ptr >();
+        m_isImm = true;
+        m_isLabel = false;
+        m_regId = NullRegister;
+        m_stackRef = NullStack;
+        m_imm = imm;
+        m_nameStringId = -1;
+    }
     
     void Value::reset(const Value& v) {
         m_owner = v.m_owner;
         m_type = v.m_type;
         m_isImm = v.m_isImm;
+        m_isLabel = v.m_isLabel;
         m_regId = v.m_regId;
+        m_stackRef = v.m_stackRef;
         m_imm = v.m_imm;
+        m_nameStringId = v.m_nameStringId;
     }
 
     FunctionBuilder* Value::getOwner() const {
@@ -79,11 +225,201 @@ namespace codegen {
         return m_owner == nullptr;
     }
 
-    Value Value::convertedTo(DataType* to) const {
+    void Value::setName(const String& name) {
+        m_owner->setName(*this, name);
+    }
+
+    const String& Value::getName() const {
+        return m_owner->getString(m_nameStringId);
+    }
+
+    Value Value::convertedTo(DataType* tp) const {
         if (m_isLabel) {
             m_owner->logError("Invalid use of label as a value");
             return Value();
         }
+
+        if (tp->isEquivalentTo(m_type)) {
+            return *this;
+        }
+
+        if (m_type->getInfo().is_pointer && tp->getInfo().is_pointer) {
+            Value ret = Value(*this);
+            ret.m_type = tp;
+            return ret;
+        }
+
+        if (m_type->getInfo().is_primitive && tp->getInfo().is_primitive) {
+            if (m_isImm) {
+                const auto& ai = m_type->getInfo();
+                const auto& bi = tp->getInfo();
+
+                if (ai.is_floating_point) {
+                    if (bi.is_floating_point) {
+                        if (bi.size == ai.size) return *this;
+                        Value ret = m_owner->val(tp);
+                        m_owner->cvt(ret, *this);
+                        return ret;
+                    }
+                    
+                    if (bi.is_unsigned) {
+                        Value ret;
+
+                        switch (bi.size) {
+                            case sizeof(u64): ret.reset(Value(m_owner, u64(m_imm.f)));
+                            case sizeof(u32): ret.reset(Value(m_owner, u64(u32(m_imm.f))));
+                            case sizeof(u16): ret.reset(Value(m_owner, u64(u16(m_imm.f))));
+                            case sizeof(u8) : ret.reset(Value(m_owner, u64(u8(m_imm.f))));
+                            default: ret.reset(Value(m_owner, u64(m_imm.f)));
+                        }
+
+                        ret.setType(tp);
+                        return ret;
+                    }
+
+                    Value ret;
+
+                    switch (bi.size) {
+                        case sizeof(i64): ret.reset(Value(m_owner, i64(m_imm.f)));
+                        case sizeof(i32): ret.reset(Value(m_owner, i64(i32(m_imm.f))));
+                        case sizeof(i16): ret.reset(Value(m_owner, i64(i16(m_imm.f))));
+                        case sizeof(i8) : ret.reset(Value(m_owner, i64(i8(m_imm.f))));
+                        default: ret.reset(Value(m_owner, i64(m_imm.f)));
+                    }
+
+                    ret.setType(tp);
+                    return ret;
+                } else {
+                    if (bi.is_floating_point) {
+                        if (ai.is_unsigned) {
+                            Value ret;
+
+                            switch (bi.size) {
+                                case sizeof(f64): ret.reset(Value(m_owner, f64(m_imm.u)));
+                                case sizeof(f32): ret.reset(Value(m_owner, f64(f32(m_imm.u))));
+                                default: ret.reset(Value(m_owner, f64(m_imm.u)));
+                            }
+
+                            ret.setType(tp);
+                            return ret;
+                        }
+
+                        Value ret;
+
+                        switch (bi.size) {
+                            case sizeof(f64): ret.reset(Value(m_owner, f64(m_imm.i)));
+                            case sizeof(f32): ret.reset(Value(m_owner, f64(f32(m_imm.i))));
+                            default: ret.reset(Value(m_owner, f64(m_imm.i)));
+                        }
+
+                        ret.setType(tp);
+                        return ret;
+                    } else {
+                        if (ai.is_unsigned) {
+                            if (bi.is_unsigned) {
+                                Value ret;
+
+                                switch (bi.size) {
+                                    case sizeof(u64): ret.reset(Value(m_owner, u64(m_imm.u)));
+                                    case sizeof(u32): ret.reset(Value(m_owner, u64(u32(m_imm.u))));
+                                    case sizeof(u16): ret.reset(Value(m_owner, u64(u16(m_imm.u))));
+                                    case sizeof(u8) : ret.reset(Value(m_owner, u64(u8(m_imm.u))));
+                                    default: ret.reset(Value(m_owner, u64(m_imm.u)));
+                                }
+
+                                ret.setType(tp);
+                                return ret;
+                            }
+
+                            Value ret;
+
+                            switch (bi.size) {
+                                case sizeof(i64): ret.reset(Value(m_owner, i64(m_imm.u)));
+                                case sizeof(i32): ret.reset(Value(m_owner, i64(i32(m_imm.u))));
+                                case sizeof(i16): ret.reset(Value(m_owner, i64(i16(m_imm.u))));
+                                case sizeof(i8) : ret.reset(Value(m_owner, i64(i8(m_imm.u))));
+                                default: ret.reset(Value(m_owner, i64(m_imm.u)));
+                            }
+
+                            ret.setType(tp);
+                            return ret;
+                        }
+
+                        if (bi.is_unsigned) {
+                            Value ret;
+
+                            switch (bi.size) {
+                                case sizeof(u64): ret.reset(Value(m_owner, u64(m_imm.i)));
+                                case sizeof(u32): ret.reset(Value(m_owner, u64(u32(m_imm.i))));
+                                case sizeof(u16): ret.reset(Value(m_owner, u64(u16(m_imm.i))));
+                                case sizeof(u8) : ret.reset(Value(m_owner, u64(u8(m_imm.i))));
+                                default: ret.reset(Value(m_owner, u64(m_imm.i)));
+                            }
+
+                            ret.setType(tp);
+                            return ret;
+                        }
+
+                        Value ret;
+
+                        switch (bi.size) {
+                            case sizeof(i64): ret.reset(Value(m_owner, i64(m_imm.i)));
+                            case sizeof(i32): ret.reset(Value(m_owner, i64(i32(m_imm.i))));
+                            case sizeof(i16): ret.reset(Value(m_owner, i64(i16(m_imm.i))));
+                            case sizeof(i8) : ret.reset(Value(m_owner, i64(i8(m_imm.i))));
+                            default: ret.reset(Value(m_owner, i64(m_imm.i)));
+                        }
+
+                        ret.setType(tp);
+                        return ret;
+                    }
+                }
+            }
+
+            Value ret = m_owner->val(tp);
+            m_owner->cvt(ret, *this);
+            return ret;
+        } else {
+            // search for cast operators
+            {
+                // todo: access rights
+                Function* castOp = m_type->findConversionOperator(tp, FullAccessRights);
+                if (castOp) return m_owner->generateCall(castOp, {}, *this);
+            }
+        
+            // search for copy constructor
+            {
+                // todo: access rights
+                auto ctors = tp->findConstructors({ m_type }, true, FullAccessRights);
+
+                if (ctors.size() == 1) {
+                    Value result = m_owner->val(tp);
+                    m_owner->generateCall(ctors[0], { *this }, result);
+                    return result;
+                } else if (ctors.size() > 1) {
+                    m_owner->logError(
+                        "Construction of type '%s' with arguments (%s) is ambiguous",
+                        tp->getFullName().c_str(),
+                        m_type->getFullName().c_str()
+                    );
+
+                    for (u32 i = 0;i < ctors.size();i++) {
+                        m_owner->logInfo(
+                            "^ Could be '%s'",
+                            ctors[i]->getFullName().c_str()
+                        );
+                    }
+
+                    return Value();
+                }
+            }
+        }
+
+        m_owner->logError(
+            "No conversion from type '%s' to '%s' is available",
+            m_type->getFullName().c_str(),
+            tp->getFullName().c_str()
+        );
 
         return Value();
     }
@@ -427,7 +763,11 @@ namespace codegen {
 
     String Value::toString() const {
         if (isEmpty()) return "<Invalid Value>";
-        if (m_isLabel) return String::Format("LABEL_%d", m_imm.u);
+        if (m_isLabel) {
+            const String& name = m_owner->getLabelName(label_id(m_imm.u));
+            if (name.size() > 0) return String::Format("%s_%d", name.c_str(), m_imm.u);
+            return String::Format("LABEL_%d", m_imm.u);
+        }
 
         const type_meta& i = m_type->getInfo();
 
@@ -444,6 +784,9 @@ namespace codegen {
             if (i.is_unsigned) return String::Format("%llu", m_imm.u);
             return String::Format("%lld", m_imm.i);
         }
+
+        const String& name = getName();
+        if (name.size() > 0) return name;
 
         if (i.is_floating_point) return String::Format("FP%d", m_regId);
         return String::Format("GP%d", m_regId);
