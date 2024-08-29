@@ -3,6 +3,7 @@
 #include <bind/Registry.h>
 #include <bind/DataType.h>
 #include <bind/ValuePointer.h>
+#include <bind/FunctionType.h>
 
 namespace codegen {
     constexpr opInfo opcodeInfo[] = {
@@ -22,10 +23,10 @@ namespace codegen {
         { "store"         , 3, { OperandType::Value    , OperandType::Register , OperandType::Immediate }, 0xFF, 0, 0, 0, 0 },
         { "jump"          , 1, { OperandType::Label    , OperandType::Unused   , OperandType::Unused    }, 0xFF, 0, 0, 0, 0 },
         { "cvt"           , 3, { OperandType::Register , OperandType::Value    , OperandType::Immediate }, 0   , 0, 0, 0, 0 },
-        { "param"         , 2, { OperandType::Value    , OperandType::Immediate, OperandType::Unused    }, 0xFF, 0, 0, 0, 0 },
-        { "call"          , 1, { OperandType::Function , OperandType::Unused   , OperandType::Unused    }, 0xFF, 1, 0, 0, 0 },
+        { "param"         , 1, { OperandType::Value    , OperandType::Unused   , OperandType::Unused    }, 0xFF, 0, 0, 0, 0 },
+        { "call"          , 2, { OperandType::Function , OperandType::Register , OperandType::Unused    }, 1   , 1, 0, 0, 0 },
         { "ret"           , 1, { OperandType::Value    , OperandType::Unused   , OperandType::Unused    }, 0xFF, 0, 0, 0, 0 },
-        { "branch"        , 2, { OperandType::Register , OperandType::Label    , OperandType::Label     }, 0xFF, 0, 0, 0, 0 },
+        { "branch"        , 2, { OperandType::Register , OperandType::Label    , OperandType::Unused    }, 0xFF, 0, 0, 0, 0 },
         
         { "_not"          , 2, { OperandType::Register , OperandType::Value    , OperandType::Unused    }, 0   , 0, 0, 0, 0 },
         { "inv"           , 2, { OperandType::Register , OperandType::Value    , OperandType::Unused    }, 0   , 0, 0, 0, 0 },
@@ -173,18 +174,24 @@ namespace codegen {
         for (u8 o = 0;o < info.operandCount;o++) {
             if (op == OpCode::cvt && o == 2 && operands[2].isImm()) {
                 DataType* tp = Registry::GetType(operands[2].getImm());
-                if (tp) s += String::Format(" <Type %s>", tp->getFullName().c_str());
+                if (tp) s += String::Format(" <Type %s>", tp->getSymbolName().c_str());
                 else s += " <Invalid Type ID>";
                 continue;
             } else if (op == OpCode::value_ptr) {
                 if (o == 1 && operands[1].isImm() && operands[2].isImm()) {
                     ValuePointer* p = Registry::GetValue(operands[1].getImm());
-                    if (p) s += String::Format(" <Global '%s'>", p->getFullName().c_str());
+                    if (p) s += String::Format(" <Global '%s'>", p->getSymbolName().c_str());
                     else s += " <Invalid Value ID>";
                     break;
                 }
             } else if ((op == OpCode::load || op == OpCode::store) && o == 1 && !operands[2].isEmpty() && operands[2].isImm()) {
                 s += String(" ") + operands[2].toString() + "(" + operands[1].toString() + ")";
+                break;
+            } else if (op == OpCode::call && o == 1) {
+                DataType* retTp = ((FunctionType*)operands[0].getType())->getReturnType();
+                if (retTp->getInfo().size > 0) {
+                    s += String(" -> ") + operands[1].toString();
+                }
                 break;
             }
 
