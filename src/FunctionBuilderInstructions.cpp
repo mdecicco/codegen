@@ -300,16 +300,24 @@ namespace codegen {
         }
 
         Instruction i(OpCode::call);
-        i.operands[0].reset(val(func));
+
+        Value callee = val(func);
+        callee.setType(func->getSignature());
+
+        i.operands[0].reset(callee);
         i.operands[1].reset(retDest);
         i.operands[2].reset(selfPtr);
         return add(i);
     }
 
     InstructionRef FunctionBuilder::call(const Value& func, const Value& retDest, const Value& selfPtr) {
-        if (func.m_isImm) return call((Function*)func.m_imm.p, retDest, selfPtr);
-
         if (m_validationEnabled) {
+            if (!func.m_type->getInfo().is_function) {
+                throw Exception("FunctionBuilder::call - func should be a function type");
+            }
+        
+            if (func.m_isImm) return call((Function*)func.m_imm.p, retDest, selfPtr);
+            
             FunctionType* sig = (FunctionType*)func.m_type;
             if (sig->getReturnType()->getInfo().size == 0 && !retDest.isEmpty()) {
                 throw Exception("FunctionBuilder::call - Provided function returns void but return destination was specified");
@@ -346,6 +354,8 @@ namespace codegen {
                 ));
             }
         }
+
+        if (func.m_isImm) return call((Function*)func.m_imm.p, retDest, selfPtr);
 
         Instruction i(OpCode::call);
         i.operands[0].reset(func);
