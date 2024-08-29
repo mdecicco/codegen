@@ -161,7 +161,11 @@ namespace codegen {
             param(arg);
         }
 
-        Value result = val(sig->getReturnType());
+        Value result = Value();
+        if (sig->getReturnType()->getInfo().size > 0) {
+            result.reset(val(sig->getReturnType()));
+        }
+
         call(func, result, selfPtr);
 
         return result;
@@ -194,7 +198,11 @@ namespace codegen {
             param(arg);
         }
 
-        Value result = val(sig->getReturnType());
+        Value result = Value();
+        if (sig->getReturnType()->getInfo().size > 0) {
+            result.reset(val(sig->getReturnType()));
+        }
+        
         call(func, result, selfPtr);
 
         return result;
