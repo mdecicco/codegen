@@ -4,6 +4,7 @@
 #include <bind/DataType.h>
 #include <bind/ValuePointer.h>
 #include <bind/FunctionType.h>
+#include <bind/PointerType.h>
 
 namespace codegen {
     constexpr opInfo opcodeInfo[] = {
@@ -171,6 +172,9 @@ namespace codegen {
     String Instruction::toString() const {
         auto& info = opcodeInfo[u32(op)];
         utils::String s = info.name;
+
+        bool commentStarted = false;
+        
         for (u8 o = 0;o < info.operandCount;o++) {
             if (op == OpCode::cvt && o == 2 && operands[2].isImm()) {
                 DataType* tp = Registry::GetType(operands[2].getImm());
@@ -198,27 +202,34 @@ namespace codegen {
             s += String(" ") + operands[o].toString();
         }
 
-        bool commentStarted = false;
-
-        if (op == OpCode::uadd && operands[1].isReg() && operands[2].isImm() && operands[2].getType()->getInfo().is_integral) {
+        if (
+            op == OpCode::uadd && operands[1].isReg() &&
+            operands[1].getType()->getInfo().is_pointer &&
+            operands[2].isImm() &&
+            operands[2].getType()->getInfo().is_integral
+        ) {
             // Is likely a property offset
+            DataType* pointedTp = ((PointerType*)operands[1].getType())->getDestinationType();
+
             u32 offset = operands[2].getImm();
-            utils::String path = getPropPath(operands[1].getType(), offset);
+            utils::String path = getPropPath(pointedTp, offset);
 
             if (path.size() > 0) {
                 // Yup
-                s += String(" ; ") + operands[1].getType()->getFullName() + "." + path;
+                const String& name = operands[1].getName();
+                s += String(" ; ") + (name.size() > 0 ? name : pointedTp->getFullName()) + "." + path;
                 commentStarted = true;
             }
         } else if (op == OpCode::load || op == OpCode::store) {
             // Is likely a property offset
-            u32 offset = 0;
-            if (!operands[2].isEmpty() && operands[2].isImm()) offset = operands[2].getImm();
-            utils::String path = getPropPath(operands[1].getType(), offset);
+            DataType* pointedTp = ((PointerType*)operands[1].getType())->getDestinationType();
+            u32 offset = operands[2].getImm();
+            utils::String path = getPropPath(pointedTp, offset);
 
             if (path.size() > 0) {
                 // Yup
-                s += String(" ; ") + operands[1].getType()->getFullName() + "." + path;
+                const String& name = operands[1].getName();
+                s += String(" ; ") + (name.size() > 0 ? name : pointedTp->getFullName()) + "." + path;
                 commentStarted = true;
             }
         }
