@@ -4,6 +4,10 @@ using namespace codegen;
 using namespace bind;
 using namespace utils;
 
+struct test_struct {
+    i32 a, b, c;
+};
+
 int main(int argc, const char** argv) {
     Registry::Create();
     
@@ -20,6 +24,10 @@ int main(int argc, const char** argv) {
         build<u64>("u64");
         build<f32>("f32");
         build<f64>("f64");
+        auto ts = build<test_struct>("ivec3");
+        ts.prop("a", &test_struct::a);
+        ts.prop("b", &test_struct::b);
+        ts.prop("c", &test_struct::c);
 
         Function fn = Function("test", Registry::Signature<i32, i32, i32>(), Registry::GlobalNamespace());
         FunctionBuilder fb = FunctionBuilder(&fn);
@@ -46,6 +54,12 @@ int main(int argc, const char** argv) {
             }, [&](){
                 something += i;
             });
+
+            Value v = fb.val(ts.getType());
+            v.setName("vec");
+            fb.store(fb.val(0), v, offsetof(test_struct, a));
+            fb.store(fb.val(1), v, offsetof(test_struct, b));
+            fb.store(fb.val(2), v, offsetof(test_struct, c));
 
             something -= fb.generateCall(&fb, { arg1, arg2 });
         });
