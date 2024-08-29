@@ -8,6 +8,27 @@
 #include <utils/Exception.h>
 
 namespace codegen {
+    const DataType::Property* getProp(DataType* tp, u32 offset) {
+        auto& props = tp->getProps();
+
+        for (u32 i = 0;i < props.size();i++) {
+            auto& p = props[i];
+            if (p.offset == -1) continue;
+            u32 pOff = u32(p.offset);
+
+            if (pOff == offset && (p.type->getInfo().is_primitive || p.type->getInfo().is_pointer)) {
+                return &p;
+            }
+            
+            if (pOff <= offset && pOff + p.type->getInfo().size > offset && p.type->getInfo().is_pointer == 0) {
+                return getProp(p.type, offset - u32(pOff));
+            }
+        }
+
+        return nullptr;
+    }
+
+
     label_id FunctionBuilder::label(bool doAddToCode, const String& name) {
         label_id id = m_nextLabel++;
 
@@ -204,8 +225,17 @@ namespace codegen {
     }
 
     InstructionRef FunctionBuilder::load(const Value& dest, const Value& src, u32 offset) {
-        if (m_validationEnabled && !dest.m_type->isEqualTo(((PointerType*)src.m_type)->getDestinationType())) {
-            throw Exception("FunctionBuilder::load - destination value has different type from the value pointed to by the source");
+        if (m_validationEnabled) {
+            DataType* destTp = ((PointerType*)src.m_type)->getDestinationType();
+            
+            if (!destTp->getInfo().is_primitive && !destTp->getInfo().is_pointer) {
+                auto prop = getProp(destTp, offset);
+                if (!prop || !prop->type->isEqualTo(src.m_type)) {
+                    throw Exception("FunctionBuilder::load - destination value has different type from the property pointed to by the source + offset");
+                }
+            } else if (!src.m_type->isEqualTo(destTp)) {
+                throw Exception("FunctionBuilder::load - destination value has different type from the value pointed to by the source");
+            }
         }
 
         Instruction i(OpCode::load);
@@ -216,8 +246,17 @@ namespace codegen {
     }
 
     InstructionRef FunctionBuilder::store(const Value& src, const Value& dest, u32 offset) {
-        if (m_validationEnabled && !dest.m_type->isEqualTo(((PointerType*)src.m_type)->getDestinationType())) {
-            throw Exception("FunctionBuilder::load - destination value has different type from the value pointed to by the source");
+        if (m_validationEnabled) {
+            DataType* destTp = ((PointerType*)dest.m_type)->getDestinationType();
+
+            if (!destTp->getInfo().is_primitive && !destTp->getInfo().is_pointer) {
+                auto prop = getProp(destTp, offset);
+                if (!prop || !prop->type->isEqualTo(src.m_type)) {
+                    throw Exception("FunctionBuilder::store - source value has different type from the property pointed to by the destination + offset");
+                }
+            } else if (!src.m_type->isEqualTo(destTp)) {
+                throw Exception("FunctionBuilder::store - source value has different type from the value pointed to by the destination");
+            }
         }
 
         Instruction i(OpCode::store);
