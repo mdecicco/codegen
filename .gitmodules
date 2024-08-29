@@ -1,6 +1,3 @@
 [submodule "deps/bind"]
 	path = deps/bind
 	url = https://github.com/mdecicco/bind.git
-[submodule "deps/utils"]
-	path = deps/utils
-	url = https://github.com/tsn-lang/utils.git
