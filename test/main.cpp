@@ -21,7 +21,7 @@ int main(int argc, const char** argv) {
         build<f32>("f32");
         build<f64>("f64");
 
-        Function fn = Function("test", Registry::Signature<void, i32, i32>(), Registry::GlobalNamespace());
+        Function fn = Function("test", Registry::Signature<i32, i32, i32>(), Registry::GlobalNamespace());
         FunctionBuilder fb = FunctionBuilder(&fn);
 
         fb.enableValidation();
@@ -46,7 +46,11 @@ int main(int argc, const char** argv) {
             }, [&](){
                 something += i;
             });
+
+            something -= fb.generateCall(&fb, { arg1, arg2 });
         });
+
+        fb.ret(something);
 
         auto code = fb.getCode();
         for (u32 i = 0;i < code.size();i++) {
