@@ -159,9 +159,9 @@ namespace codegen {
             if (dtor) {
                 // todo: Some planning has to be done to figure out how to
                 // determine if we should have access to this destructor
-                m_owner->generateCall(dtor, {}, m_stackPointers[i]);
+                m_owner->generateCall(dtor, {}, m_stackPointers[u32(i)]);
             }
-            stack_id ref = m_stackPointers[i].getStackRef();
+            stack_id ref = m_stackPointers[u32(i)].getStackRef();
             m_owner->stackFree(ref);
             freedIds.insert(ref);
         }
