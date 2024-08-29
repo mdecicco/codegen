@@ -1,4 +1,5 @@
 #include <codegen/IR.h>
+#include <codegen/FunctionBuilder.h>
 
 namespace codegen {
     constexpr opInfo opcodeInfo[] = {
@@ -147,5 +148,13 @@ namespace codegen {
 
     const opInfo& Instruction::Info(OpCode code) {
         return opcodeInfo[u32(code)];
+    }
+
+
+    InstructionRef::InstructionRef(FunctionBuilder* fn, u32 idx) : m_owner(fn), m_index(idx) {
+    }
+
+    Instruction* InstructionRef::operator->() {
+        return &m_owner->m_code[m_index];
     }
 };

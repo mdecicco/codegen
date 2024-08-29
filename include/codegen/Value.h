@@ -34,6 +34,7 @@ namespace codegen {
             DataType* getType() const;
             void setType(DataType* type);
             vreg_id getRegisterId() const;
+            stack_id getStackRef() const;
             const Immediate& getImm() const;
             Immediate& getImm();
             bool isImm() const;
@@ -123,6 +124,7 @@ namespace codegen {
             bool m_isImm;
             bool m_isLabel;
             vreg_id m_regId;
+            stack_id m_stackRef;
             Immediate m_imm;
     };
 };

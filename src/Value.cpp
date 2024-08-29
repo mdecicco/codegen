@@ -7,25 +7,25 @@
 namespace codegen {
     using namespace bind;
     
-    Value::Value() : m_owner(nullptr), m_type(Registry::GetType<void>()), m_isImm(false), m_isLabel(false), m_regId(NullRegister) {}
-    Value::Value(const Value& v) : m_owner(v.m_owner), m_type(v.m_type), m_isImm(v.m_isImm), m_isLabel(v.m_isLabel), m_regId(v.m_regId), m_imm(v.m_imm) {}
-    Value::Value(FunctionBuilder* func, bool imm) : m_owner(func), m_type(Registry::GetType<bool>()), m_isImm(true), m_isLabel(false), m_regId(NullRegister), m_imm(imm) {}
-    Value::Value(FunctionBuilder* func, u8   imm) : m_owner(func), m_type(Registry::GetType<u8  >()), m_isImm(true), m_isLabel(false), m_regId(NullRegister), m_imm(imm) {}
-    Value::Value(FunctionBuilder* func, u16  imm) : m_owner(func), m_type(Registry::GetType<u16 >()), m_isImm(true), m_isLabel(false), m_regId(NullRegister), m_imm(imm) {}
-    Value::Value(FunctionBuilder* func, u32  imm) : m_owner(func), m_type(Registry::GetType<u32 >()), m_isImm(true), m_isLabel(false), m_regId(NullRegister), m_imm(imm) {}
-    Value::Value(FunctionBuilder* func, u64  imm) : m_owner(func), m_type(Registry::GetType<u64 >()), m_isImm(true), m_isLabel(false), m_regId(NullRegister), m_imm(imm) {}
-    Value::Value(FunctionBuilder* func, i8   imm) : m_owner(func), m_type(Registry::GetType<i8  >()), m_isImm(true), m_isLabel(false), m_regId(NullRegister), m_imm(imm) {}
-    Value::Value(FunctionBuilder* func, i16  imm) : m_owner(func), m_type(Registry::GetType<i16 >()), m_isImm(true), m_isLabel(false), m_regId(NullRegister), m_imm(imm) {}
-    Value::Value(FunctionBuilder* func, i32  imm) : m_owner(func), m_type(Registry::GetType<i32 >()), m_isImm(true), m_isLabel(false), m_regId(NullRegister), m_imm(imm) {}
-    Value::Value(FunctionBuilder* func, i64  imm) : m_owner(func), m_type(Registry::GetType<i64 >()), m_isImm(true), m_isLabel(false), m_regId(NullRegister), m_imm(imm) {}
-    Value::Value(FunctionBuilder* func, f32  imm) : m_owner(func), m_type(Registry::GetType<f32 >()), m_isImm(true), m_isLabel(false), m_regId(NullRegister), m_imm(imm) {}
-    Value::Value(FunctionBuilder* func, f64  imm) : m_owner(func), m_type(Registry::GetType<f64 >()), m_isImm(true), m_isLabel(false), m_regId(NullRegister), m_imm(imm) {}
-    Value::Value(FunctionBuilder* func, ptr  imm) : m_owner(func), m_type(Registry::GetType<ptr >()), m_isImm(true), m_isLabel(false), m_regId(NullRegister), m_imm(imm) {}
+    Value::Value() : m_owner(nullptr), m_type(Registry::GetType<void>()), m_isImm(false), m_isLabel(false), m_regId(NullRegister), m_stackRef(NullStack) {}
+    Value::Value(const Value& v) : m_owner(v.m_owner), m_type(v.m_type), m_isImm(v.m_isImm), m_isLabel(v.m_isLabel), m_regId(v.m_regId), m_stackRef(v.m_stackRef), m_imm(v.m_imm) {}
+    Value::Value(FunctionBuilder* func, bool imm) : m_owner(func), m_type(Registry::GetType<bool>()), m_isImm(true), m_isLabel(false), m_regId(NullRegister), m_stackRef(NullStack), m_imm(imm) {}
+    Value::Value(FunctionBuilder* func, u8   imm) : m_owner(func), m_type(Registry::GetType<u8  >()), m_isImm(true), m_isLabel(false), m_regId(NullRegister), m_stackRef(NullStack), m_imm(imm) {}
+    Value::Value(FunctionBuilder* func, u16  imm) : m_owner(func), m_type(Registry::GetType<u16 >()), m_isImm(true), m_isLabel(false), m_regId(NullRegister), m_stackRef(NullStack), m_imm(imm) {}
+    Value::Value(FunctionBuilder* func, u32  imm) : m_owner(func), m_type(Registry::GetType<u32 >()), m_isImm(true), m_isLabel(false), m_regId(NullRegister), m_stackRef(NullStack), m_imm(imm) {}
+    Value::Value(FunctionBuilder* func, u64  imm) : m_owner(func), m_type(Registry::GetType<u64 >()), m_isImm(true), m_isLabel(false), m_regId(NullRegister), m_stackRef(NullStack), m_imm(imm) {}
+    Value::Value(FunctionBuilder* func, i8   imm) : m_owner(func), m_type(Registry::GetType<i8  >()), m_isImm(true), m_isLabel(false), m_regId(NullRegister), m_stackRef(NullStack), m_imm(imm) {}
+    Value::Value(FunctionBuilder* func, i16  imm) : m_owner(func), m_type(Registry::GetType<i16 >()), m_isImm(true), m_isLabel(false), m_regId(NullRegister), m_stackRef(NullStack), m_imm(imm) {}
+    Value::Value(FunctionBuilder* func, i32  imm) : m_owner(func), m_type(Registry::GetType<i32 >()), m_isImm(true), m_isLabel(false), m_regId(NullRegister), m_stackRef(NullStack), m_imm(imm) {}
+    Value::Value(FunctionBuilder* func, i64  imm) : m_owner(func), m_type(Registry::GetType<i64 >()), m_isImm(true), m_isLabel(false), m_regId(NullRegister), m_stackRef(NullStack), m_imm(imm) {}
+    Value::Value(FunctionBuilder* func, f32  imm) : m_owner(func), m_type(Registry::GetType<f32 >()), m_isImm(true), m_isLabel(false), m_regId(NullRegister), m_stackRef(NullStack), m_imm(imm) {}
+    Value::Value(FunctionBuilder* func, f64  imm) : m_owner(func), m_type(Registry::GetType<f64 >()), m_isImm(true), m_isLabel(false), m_regId(NullRegister), m_stackRef(NullStack), m_imm(imm) {}
+    Value::Value(FunctionBuilder* func, ptr  imm) : m_owner(func), m_type(Registry::GetType<ptr >()), m_isImm(true), m_isLabel(false), m_regId(NullRegister), m_stackRef(NullStack), m_imm(imm) {}
     Value::Value(
         vreg_id regId,
         FunctionBuilder* func,
         DataType* type
-    ) : m_owner(func), m_type(type), m_isImm(false), m_isLabel(false), m_regId(regId) {}
+    ) : m_owner(func), m_type(type), m_isImm(false), m_isLabel(false), m_regId(regId), m_stackRef(NullStack) {}
     
     void Value::reset(const Value& v) {
         m_owner = v.m_owner;
@@ -49,6 +49,10 @@ namespace codegen {
     
     vreg_id Value::getRegisterId() const {
         return m_regId;
+    }
+
+    stack_id Value::getStackRef() const {
+        return m_stackRef;
     }
 
     const Immediate& Value::getImm() const {
@@ -217,20 +221,20 @@ namespace codegen {
         if (opMethods.size() > 1) {
             m_owner->logError(
                 "Reference to operator '[]' of type '%s' with arguments (%s) is ambiguous",
-                m_type->getName().c_str(),
-                rhs.m_type->getName().c_str()
+                m_type->getFullName().c_str(),
+                rhs.m_type->getFullName().c_str()
             );
 
             for (u32 i = 0;i < opMethods.size();i++) {
-                m_owner->logInfo("^ Could be: '%s'", opMethods[i]->getSignature()->getName().c_str());
+                m_owner->logInfo("^ Could be: '%s'", opMethods[i]->getSignature()->getFullName().c_str());
             }
 
             return Value();
         } else if (opMethods.size() == 0) {
             m_owner->logError(
                 "Type '%s' has no operator '[]' with arguments matching (%s)",
-                m_type->getName().c_str(),
-                rhs.m_type->getName().c_str()
+                m_type->getFullName().c_str(),
+                rhs.m_type->getFullName().c_str()
             );
 
             return Value();
@@ -277,17 +281,17 @@ namespace codegen {
             String argStr;
             for (u32 i = 0;i < argTps.size();i++) {
                 if (i > 0) argStr += ", ";
-                argStr += argTps[i]->getName().c_str();
+                argStr += argTps[i]->getFullName().c_str();
             }
 
             m_owner->logError(
                 "Reference to operator '()' of type '%s' with arguments (%s) is ambiguous",
-                m_type->getName().c_str(),
+                m_type->getFullName().c_str(),
                 argStr.c_str()
             );
 
             for (u32 i = 0;i < opMethods.size();i++) {
-                m_owner->logInfo("^ Could be: '%s'", opMethods[i]->getSignature()->getName().c_str());
+                m_owner->logInfo("^ Could be: '%s'", opMethods[i]->getSignature()->getFullName().c_str());
             }
 
             return Value();
@@ -295,12 +299,12 @@ namespace codegen {
             String argStr;
             for (u32 i = 0;i < argTps.size();i++) {
                 if (i > 0) argStr += ", ";
-                argStr += argTps[i]->getName().c_str();
+                argStr += argTps[i]->getFullName().c_str();
             }
 
             m_owner->logError(
                 "Type '%s' has no operator '()' with arguments matching (%s)",
-                m_type->getName().c_str(),
+                m_type->getFullName().c_str(),
                 argStr.c_str()
             );
 
@@ -374,18 +378,18 @@ namespace codegen {
         if (opMethods.size() > 1) {
             m_owner->logError(
                 "Reference to operator '*' of type '%s' with arguments () is ambiguous",
-                m_type->getName().c_str()
+                m_type->getFullName().c_str()
             );
 
             for (u32 i = 0;i < opMethods.size();i++) {
-                m_owner->logInfo("^ Could be: '%s'", opMethods[i]->getSignature()->getName().c_str());
+                m_owner->logInfo("^ Could be: '%s'", opMethods[i]->getSignature()->getFullName().c_str());
             }
 
             return Value();
         } else if (opMethods.size() == 0) {
             m_owner->logError(
                 "Type '%s' has no operator '()' with arguments matching ()",
-                m_type->getName().c_str()
+                m_type->getFullName().c_str()
             );
 
             return Value();
@@ -511,21 +515,21 @@ namespace codegen {
             m_owner->logError(
                 "Reference to operator '%s' of type '%s' with arguments (%s) is ambiguous",
                 overrideName,
-                m_type->getName().c_str(),
-                rhs.m_type->getName().c_str()
+                m_type->getFullName().c_str(),
+                rhs.m_type->getFullName().c_str()
             );
 
             for (u32 i = 0;i < opMethods.size();i++) {
-                m_owner->logInfo("^ Could be: '%s'", opMethods[i]->getSignature()->getName().c_str());
+                m_owner->logInfo("^ Could be: '%s'", opMethods[i]->getSignature()->getFullName().c_str());
             }
 
             return Value();
         } else if (opMethods.size() == 0) {
             m_owner->logError(
                 "Type '%s' has no operator '%s' with arguments matching (%s)",
-                m_type->getName().c_str(),
+                m_type->getFullName().c_str(),
                 overrideName,
-                rhs.m_type->getName().c_str()
+                rhs.m_type->getFullName().c_str()
             );
 
             return Value();
@@ -598,18 +602,18 @@ namespace codegen {
             m_owner->logError(
                 "Reference to operator '%s' of type '%s' with arguments () is ambiguous",
                 overrideName,
-                m_type->getName().c_str()
+                m_type->getFullName().c_str()
             );
 
             for (u32 i = 0;i < opMethods.size();i++) {
-                m_owner->logInfo("^ Could be: '%s'", opMethods[i]->getSignature()->getName().c_str());
+                m_owner->logInfo("^ Could be: '%s'", opMethods[i]->getSignature()->getFullName().c_str());
             }
 
             return Value();
         } else if (opMethods.size() == 0) {
             m_owner->logError(
                 "Type '%s' has no operator '%s' with arguments matching ()",
-                m_type->getName().c_str(),
+                m_type->getFullName().c_str(),
                 overrideName
             );
 

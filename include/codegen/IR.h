@@ -5,6 +5,8 @@
 #include <utils/String.h>
 
 namespace codegen {
+    class FunctionBuilder;
+
     enum class OperandType : u8 {
         /** operand unused */
         Unused,
@@ -65,5 +67,18 @@ namespace codegen {
             String toString() const;
 
             static const opInfo& Info(OpCode code);
+    };
+
+    class InstructionRef {
+        public:
+            Instruction* operator->();
+        
+        protected:
+            friend class FunctionBuilder;
+
+            InstructionRef(FunctionBuilder* cb, u32 index);
+
+            FunctionBuilder* m_owner;
+            u32 m_index;
     };
 };

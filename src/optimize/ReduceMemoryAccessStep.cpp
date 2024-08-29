@@ -5,6 +5,7 @@
 #include <codegen/interfaces/IWithLogging.h>
 #include <codegen/FunctionBuilder.h>
 #include <bind/Function.h>
+#include <utils/Array.hpp>
 
 #include <unordered_map>
 #include <algorithm>
@@ -498,7 +499,7 @@ namespace codegen {
         }
 
         if (removeAddrs.size() > 0) {
-            std::sort(removeAddrs.begin(), removeAddrs.end(), [](address a, address b) {
+            removeAddrs.sort([](address a, address b) {
                 return a > b;
             });
 
