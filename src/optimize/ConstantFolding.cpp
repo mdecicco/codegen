@@ -7,6 +7,7 @@
 #include <bind/DataType.h>
 #include <bind/Registry.h>
 #include <bind/Function.h>
+#include <utils/Exception.h>
 
 namespace codegen {
     template <typename T, typename S> T add(T a, S b) { return T(a + b); }
@@ -82,6 +83,9 @@ namespace codegen {
             else return T((*(u32*)&a) ^ (*(u32*)&b));
         }
     }
+    template <typename T, typename S> T cvt(S v) {
+        return T(v);
+    }
 
     ConstantFoldingStep::ConstantFoldingStep() : IPostProcessStep() {
     }
@@ -107,10 +111,9 @@ namespace codegen {
                 Value& b = i.operands[2];
                 if (!a.isImm() || !b.isImm()) continue;
 
-                const auto& ai = a.getType()->getInfo();
-                const auto& bi = b.getType()->getInfo();
-
                 #define doOp(func)                                                                                                \
+                    const auto& ai = a.getType()->getInfo();                                                                      \
+                    const auto& bi = b.getType()->getInfo();                                                                      \
                     if (ai.is_floating_point) {                                                                                   \
                         if (ai.size == sizeof(f32)) {                                                                             \
                             if (bi.is_floating_point) {                                                                           \
@@ -140,6 +143,231 @@ namespace codegen {
                     }
 
                 switch (i.op) {
+                    case OpCode::cvt: {
+                        DataType* destTp = Registry::GetType(b.getImm());
+                        if (!destTp) throw Exception("ConstantFoldingStep::execute - invlaid type id specified to cvt instruction");
+
+                        auto ai = a.getType()->getInfo();
+                        auto bi = destTp->getInfo();
+
+                        if (ai.is_floating_point) {
+                            if (ai.size == sizeof(f32)) {
+                                if (bi.is_floating_point) {
+                                    if (bi.size == sizeof(f32)) result.reset(b);
+                                    else                        result.reset(ch->owner->val(cvt<f32, f64>(b.getImm())));
+                                } else if (bi.is_unsigned) {
+                                    switch (bi.size) {
+                                        case sizeof(u8 ): { result.reset(ch->owner->val(cvt<f32, u8 >(b.getImm()))); break; }
+                                        case sizeof(u16): { result.reset(ch->owner->val(cvt<f32, u16>(b.getImm()))); break; }
+                                        case sizeof(u32): { result.reset(ch->owner->val(cvt<f32, u32>(b.getImm()))); break; }
+                                        case sizeof(u64): { result.reset(ch->owner->val(cvt<f32, u64>(b.getImm()))); break; }
+                                    }
+                                } else {
+                                    switch (bi.size) {
+                                        case sizeof(i8 ): { result.reset(ch->owner->val(cvt<f32, i8 >(b.getImm()))); break; }
+                                        case sizeof(i16): { result.reset(ch->owner->val(cvt<f32, i16>(b.getImm()))); break; }
+                                        case sizeof(i32): { result.reset(ch->owner->val(cvt<f32, i32>(b.getImm()))); break; }
+                                        case sizeof(i64): { result.reset(ch->owner->val(cvt<f32, i64>(b.getImm()))); break; }
+                                    }
+                                }
+                            } else {
+                                if (bi.is_floating_point) {
+                                    if (bi.size == sizeof(f32)) result.reset(ch->owner->val(cvt<f64, f32>(b.getImm())));
+                                    else                        result.reset(b);
+                                } else if (bi.is_unsigned) {
+                                    switch (bi.size) {
+                                        case sizeof(u8 ): { result.reset(ch->owner->val(cvt<f64, u8 >(b.getImm()))); break; }
+                                        case sizeof(u16): { result.reset(ch->owner->val(cvt<f64, u16>(b.getImm()))); break; }
+                                        case sizeof(u32): { result.reset(ch->owner->val(cvt<f64, u32>(b.getImm()))); break; }
+                                        case sizeof(u64): { result.reset(ch->owner->val(cvt<f64, u64>(b.getImm()))); break; }
+                                    }
+                                } else {
+                                    switch (bi.size) {
+                                        case sizeof(i8 ): { result.reset(ch->owner->val(cvt<f64, i8 >(b.getImm()))); break; }
+                                        case sizeof(i16): { result.reset(ch->owner->val(cvt<f64, i16>(b.getImm()))); break; }
+                                        case sizeof(i32): { result.reset(ch->owner->val(cvt<f64, i32>(b.getImm()))); break; }
+                                        case sizeof(i64): { result.reset(ch->owner->val(cvt<f64, i64>(b.getImm()))); break; }
+                                    }
+                                }
+                            }
+                        } else if (ai.is_unsigned) {
+                            switch (ai.size) {
+                                case sizeof(u8): {
+                                    if (bi.is_floating_point) {
+                                        if (bi.size == sizeof(f32)) result.reset(ch->owner->val(cvt<u8, f32>(b.getImm())));
+                                        else                        result.reset(ch->owner->val(cvt<u8, f64>(b.getImm())));
+                                    } else if (bi.is_unsigned) {
+                                        switch (bi.size) {
+                                            case sizeof(u8 ): { result.reset(b); break; }
+                                            case sizeof(u16): { result.reset(ch->owner->val(cvt<u8, u16>(b.getImm()))); break; }
+                                            case sizeof(u32): { result.reset(ch->owner->val(cvt<u8, u32>(b.getImm()))); break; }
+                                            case sizeof(u64): { result.reset(ch->owner->val(cvt<u8, u64>(b.getImm()))); break; }
+                                        }
+                                    } else {
+                                        switch (bi.size) {
+                                            case sizeof(i8 ): { result.reset(ch->owner->val(cvt<u8, i8 >(b.getImm()))); break; }
+                                            case sizeof(i16): { result.reset(ch->owner->val(cvt<u8, i16>(b.getImm()))); break; }
+                                            case sizeof(i32): { result.reset(ch->owner->val(cvt<u8, i32>(b.getImm()))); break; }
+                                            case sizeof(i64): { result.reset(ch->owner->val(cvt<u8, i64>(b.getImm()))); break; }
+                                        }
+                                    }
+                                    break;
+                                }
+                                case sizeof(u16): {
+                                    if (bi.is_floating_point) {
+                                        if (bi.size == sizeof(f32)) result.reset(ch->owner->val(cvt<u16, f32>(b.getImm())));
+                                        else                        result.reset(ch->owner->val(cvt<u16, f64>(b.getImm())));
+                                    } else if (bi.is_unsigned) {
+                                        switch (bi.size) {
+                                            case sizeof(u8 ): { result.reset(ch->owner->val(cvt<u16, u8 >(b.getImm()))); break; }
+                                            case sizeof(u16): { result.reset(b); break; }
+                                            case sizeof(u32): { result.reset(ch->owner->val(cvt<u16, u32>(b.getImm()))); break; }
+                                            case sizeof(u64): { result.reset(ch->owner->val(cvt<u16, u64>(b.getImm()))); break; }
+                                        }
+                                    } else {
+                                        switch (bi.size) {
+                                            case sizeof(i8 ): { result.reset(ch->owner->val(cvt<u16, i8 >(b.getImm()))); break; }
+                                            case sizeof(i16): { result.reset(ch->owner->val(cvt<u16, i16>(b.getImm()))); break; }
+                                            case sizeof(i32): { result.reset(ch->owner->val(cvt<u16, i32>(b.getImm()))); break; }
+                                            case sizeof(i64): { result.reset(ch->owner->val(cvt<u16, i64>(b.getImm()))); break; }
+                                        }
+                                    }
+                                    break;
+                                }
+                                case sizeof(u32): {
+                                    if (bi.is_floating_point) {
+                                        if (bi.size == sizeof(f32)) result.reset(ch->owner->val(cvt<u32, f32>(b.getImm())));
+                                        else                        result.reset(ch->owner->val(cvt<u32, f64>(b.getImm())));
+                                    } else if (bi.is_unsigned) {
+                                        switch (bi.size) {
+                                            case sizeof(u8 ): { result.reset(ch->owner->val(cvt<u32, u8 >(b.getImm()))); break; }
+                                            case sizeof(u16): { result.reset(ch->owner->val(cvt<u32, u16>(b.getImm()))); break; }
+                                            case sizeof(u32): { result.reset(b); break; }
+                                            case sizeof(u64): { result.reset(ch->owner->val(cvt<u32, u64>(b.getImm()))); break; }
+                                        }
+                                    } else {
+                                        switch (bi.size) {
+                                            case sizeof(i8 ): { result.reset(ch->owner->val(cvt<u32, i8 >(b.getImm()))); break; }
+                                            case sizeof(i16): { result.reset(ch->owner->val(cvt<u32, i16>(b.getImm()))); break; }
+                                            case sizeof(i32): { result.reset(ch->owner->val(cvt<u32, i32>(b.getImm()))); break; }
+                                            case sizeof(i64): { result.reset(ch->owner->val(cvt<u32, i64>(b.getImm()))); break; }
+                                        }
+                                    }
+                                    break;
+                                }
+                                case sizeof(u64): {
+                                    if (bi.is_floating_point) {
+                                        if (bi.size == sizeof(f32)) result.reset(ch->owner->val(cvt<u64, f32>(b.getImm())));
+                                        else                        result.reset(ch->owner->val(cvt<u64, f64>(b.getImm())));
+                                    } else if (bi.is_unsigned) {
+                                        switch (bi.size) {
+                                            case sizeof(u8 ): { result.reset(ch->owner->val(cvt<u64, u8 >(b.getImm()))); break; }
+                                            case sizeof(u16): { result.reset(ch->owner->val(cvt<u64, u16>(b.getImm()))); break; }
+                                            case sizeof(u32): { result.reset(ch->owner->val(cvt<u64, u32>(b.getImm()))); break; }
+                                            case sizeof(u64): { result.reset(b); break; }
+                                        }
+                                    } else {
+                                        switch (bi.size) {
+                                            case sizeof(i8 ): { result.reset(ch->owner->val(cvt<u64, i8 >(b.getImm()))); break; }
+                                            case sizeof(i16): { result.reset(ch->owner->val(cvt<u64, i16>(b.getImm()))); break; }
+                                            case sizeof(i32): { result.reset(ch->owner->val(cvt<u64, i32>(b.getImm()))); break; }
+                                            case sizeof(i64): { result.reset(ch->owner->val(cvt<u64, i64>(b.getImm()))); break; }
+                                        }
+                                    }
+                                    break;
+                                }
+                            }
+                        } else {
+                            switch (ai.size) {
+                                case sizeof(i8): {
+                                    if (bi.is_floating_point) {
+                                        if (bi.size == sizeof(f32)) result.reset(ch->owner->val(cvt<i8, f32>(b.getImm())));
+                                        else                        result.reset(ch->owner->val(cvt<i8, f64>(b.getImm())));
+                                    } else if (bi.is_unsigned) {
+                                        switch (bi.size) {
+                                            case sizeof(u8 ): { result.reset(ch->owner->val(cvt<i8, u8 >(b.getImm()))); break; }
+                                            case sizeof(u16): { result.reset(ch->owner->val(cvt<i8, u16>(b.getImm()))); break; }
+                                            case sizeof(u32): { result.reset(ch->owner->val(cvt<i8, u32>(b.getImm()))); break; }
+                                            case sizeof(u64): { result.reset(ch->owner->val(cvt<i8, u64>(b.getImm()))); break; }
+                                        }
+                                    } else {
+                                        switch (bi.size) {
+                                            case sizeof(i8 ): { result.reset(b); break; }
+                                            case sizeof(i16): { result.reset(ch->owner->val(cvt<i8, i16>(b.getImm()))); break; }
+                                            case sizeof(i32): { result.reset(ch->owner->val(cvt<i8, i32>(b.getImm()))); break; }
+                                            case sizeof(i64): { result.reset(ch->owner->val(cvt<i8, i64>(b.getImm()))); break; }
+                                        }
+                                    }
+                                    break;
+                                }
+                                case sizeof(i16): {
+                                    if (bi.is_floating_point) {
+                                        if (bi.size == sizeof(f32)) result.reset(ch->owner->val(cvt<i16, f32>(b.getImm())));
+                                        else                        result.reset(ch->owner->val(cvt<i16, f64>(b.getImm())));
+                                    } else if (bi.is_unsigned) {
+                                        switch (bi.size) {
+                                            case sizeof(u8 ): { result.reset(ch->owner->val(cvt<i16, u8 >(b.getImm()))); break; }
+                                            case sizeof(u16): { result.reset(ch->owner->val(cvt<i16, u16>(b.getImm()))); break; }
+                                            case sizeof(u32): { result.reset(ch->owner->val(cvt<i16, u32>(b.getImm()))); break; }
+                                            case sizeof(u64): { result.reset(ch->owner->val(cvt<i16, u64>(b.getImm()))); break; }
+                                        }
+                                    } else {
+                                        switch (bi.size) {
+                                            case sizeof(i8 ): { result.reset(ch->owner->val(cvt<i16, i8 >(b.getImm()))); break; }
+                                            case sizeof(i16): { result.reset(b); break; }
+                                            case sizeof(i32): { result.reset(ch->owner->val(cvt<i16, i32>(b.getImm()))); break; }
+                                            case sizeof(i64): { result.reset(ch->owner->val(cvt<i16, i64>(b.getImm()))); break; }
+                                        }
+                                    }
+                                    break;
+                                }
+                                case sizeof(i32): {
+                                    if (bi.is_floating_point) {
+                                        if (bi.size == sizeof(f32)) result.reset(ch->owner->val(cvt<i32, f32>(b.getImm())));
+                                        else                        result.reset(ch->owner->val(cvt<i32, f64>(b.getImm())));
+                                    } else if (bi.is_unsigned) {
+                                        switch (bi.size) {
+                                            case sizeof(u8 ): { result.reset(ch->owner->val(cvt<i32, u8 >(b.getImm()))); break; }
+                                            case sizeof(u16): { result.reset(ch->owner->val(cvt<i32, u16>(b.getImm()))); break; }
+                                            case sizeof(u32): { result.reset(ch->owner->val(cvt<i32, u32>(b.getImm()))); break; }
+                                            case sizeof(u64): { result.reset(ch->owner->val(cvt<i32, u64>(b.getImm()))); break; }
+                                        }
+                                    } else {
+                                        switch (bi.size) {
+                                            case sizeof(i8 ): { result.reset(ch->owner->val(cvt<i32, i8 >(b.getImm()))); break; }
+                                            case sizeof(i16): { result.reset(ch->owner->val(cvt<i32, i16>(b.getImm()))); break; }
+                                            case sizeof(i32): { result.reset(b); break; }
+                                            case sizeof(i64): { result.reset(ch->owner->val(cvt<i32, i64>(b.getImm()))); break; }
+                                        }
+                                    }
+                                    break;
+                                }
+                                case sizeof(i64): {
+                                    if (bi.is_floating_point) {
+                                        if (bi.size == sizeof(f32)) result.reset(ch->owner->val(cvt<i64, f32>(b.getImm())));
+                                        else                        result.reset(ch->owner->val(cvt<i64, f64>(b.getImm())));
+                                    } else if (bi.is_unsigned) {
+                                        switch (bi.size) {
+                                            case sizeof(u8 ): { result.reset(ch->owner->val(cvt<i64, u8 >(b.getImm()))); break; }
+                                            case sizeof(u16): { result.reset(ch->owner->val(cvt<i64, u16>(b.getImm()))); break; }
+                                            case sizeof(u32): { result.reset(ch->owner->val(cvt<i64, u32>(b.getImm()))); break; }
+                                            case sizeof(u64): { result.reset(ch->owner->val(cvt<i64, u64>(b.getImm()))); break; }
+                                        }
+                                    } else {
+                                        switch (bi.size) {
+                                            case sizeof(i8 ): { result.reset(ch->owner->val(cvt<i64, i8 >(b.getImm()))); break; }
+                                            case sizeof(i16): { result.reset(ch->owner->val(cvt<i64, i16>(b.getImm()))); break; }
+                                            case sizeof(i32): { result.reset(ch->owner->val(cvt<i64, i32>(b.getImm()))); break; }
+                                            case sizeof(i64): { result.reset(b); break; }
+                                        }
+                                    }
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        break;
+                    }
                     case OpCode::iadd:
                     case OpCode::uadd:
                     case OpCode::fadd:

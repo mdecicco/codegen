@@ -239,6 +239,16 @@ namespace codegen {
             return Value();
         }
 
+        if (!m_type->isConvertibleTo(tp)) {
+            m_owner->logError(
+                "No conversion from type '%s' to '%s' is available",
+                m_type->getFullName().c_str(),
+                tp->getFullName().c_str()
+            );
+
+            return Value();
+        }
+
         if (tp->isEquivalentTo(m_type)) {
             return *this;
         }
@@ -250,178 +260,17 @@ namespace codegen {
         }
 
         if (m_type->getInfo().is_primitive && tp->getInfo().is_primitive) {
-            if (m_isImm) {
-                const auto& ai = m_type->getInfo();
-                const auto& bi = tp->getInfo();
-
-                if (ai.is_floating_point) {
-                    if (bi.is_floating_point) {
-                        if (bi.size == ai.size) return *this;
-                        Value ret = m_owner->val(tp);
-                        m_owner->cvt(ret, *this);
-                        return ret;
-                    }
-                    
-                    if (bi.is_unsigned) {
-                        Value ret;
-
-                        switch (bi.size) {
-                            case sizeof(u64): ret.reset(Value(m_owner, u64(m_imm.f)));
-                            case sizeof(u32): ret.reset(Value(m_owner, u64(u32(m_imm.f))));
-                            case sizeof(u16): ret.reset(Value(m_owner, u64(u16(m_imm.f))));
-                            case sizeof(u8) : ret.reset(Value(m_owner, u64(u8(m_imm.f))));
-                            default: ret.reset(Value(m_owner, u64(m_imm.f)));
-                        }
-
-                        ret.setType(tp);
-                        return ret;
-                    }
-
-                    Value ret;
-
-                    switch (bi.size) {
-                        case sizeof(i64): ret.reset(Value(m_owner, i64(m_imm.f)));
-                        case sizeof(i32): ret.reset(Value(m_owner, i64(i32(m_imm.f))));
-                        case sizeof(i16): ret.reset(Value(m_owner, i64(i16(m_imm.f))));
-                        case sizeof(i8) : ret.reset(Value(m_owner, i64(i8(m_imm.f))));
-                        default: ret.reset(Value(m_owner, i64(m_imm.f)));
-                    }
-
-                    ret.setType(tp);
-                    return ret;
-                } else {
-                    if (bi.is_floating_point) {
-                        if (ai.is_unsigned) {
-                            Value ret;
-
-                            switch (bi.size) {
-                                case sizeof(f64): ret.reset(Value(m_owner, f64(m_imm.u)));
-                                case sizeof(f32): ret.reset(Value(m_owner, f64(f32(m_imm.u))));
-                                default: ret.reset(Value(m_owner, f64(m_imm.u)));
-                            }
-
-                            ret.setType(tp);
-                            return ret;
-                        }
-
-                        Value ret;
-
-                        switch (bi.size) {
-                            case sizeof(f64): ret.reset(Value(m_owner, f64(m_imm.i)));
-                            case sizeof(f32): ret.reset(Value(m_owner, f64(f32(m_imm.i))));
-                            default: ret.reset(Value(m_owner, f64(m_imm.i)));
-                        }
-
-                        ret.setType(tp);
-                        return ret;
-                    } else {
-                        if (ai.is_unsigned) {
-                            if (bi.is_unsigned) {
-                                Value ret;
-
-                                switch (bi.size) {
-                                    case sizeof(u64): ret.reset(Value(m_owner, u64(m_imm.u)));
-                                    case sizeof(u32): ret.reset(Value(m_owner, u64(u32(m_imm.u))));
-                                    case sizeof(u16): ret.reset(Value(m_owner, u64(u16(m_imm.u))));
-                                    case sizeof(u8) : ret.reset(Value(m_owner, u64(u8(m_imm.u))));
-                                    default: ret.reset(Value(m_owner, u64(m_imm.u)));
-                                }
-
-                                ret.setType(tp);
-                                return ret;
-                            }
-
-                            Value ret;
-
-                            switch (bi.size) {
-                                case sizeof(i64): ret.reset(Value(m_owner, i64(m_imm.u)));
-                                case sizeof(i32): ret.reset(Value(m_owner, i64(i32(m_imm.u))));
-                                case sizeof(i16): ret.reset(Value(m_owner, i64(i16(m_imm.u))));
-                                case sizeof(i8) : ret.reset(Value(m_owner, i64(i8(m_imm.u))));
-                                default: ret.reset(Value(m_owner, i64(m_imm.u)));
-                            }
-
-                            ret.setType(tp);
-                            return ret;
-                        }
-
-                        if (bi.is_unsigned) {
-                            Value ret;
-
-                            switch (bi.size) {
-                                case sizeof(u64): ret.reset(Value(m_owner, u64(m_imm.i)));
-                                case sizeof(u32): ret.reset(Value(m_owner, u64(u32(m_imm.i))));
-                                case sizeof(u16): ret.reset(Value(m_owner, u64(u16(m_imm.i))));
-                                case sizeof(u8) : ret.reset(Value(m_owner, u64(u8(m_imm.i))));
-                                default: ret.reset(Value(m_owner, u64(m_imm.i)));
-                            }
-
-                            ret.setType(tp);
-                            return ret;
-                        }
-
-                        Value ret;
-
-                        switch (bi.size) {
-                            case sizeof(i64): ret.reset(Value(m_owner, i64(m_imm.i)));
-                            case sizeof(i32): ret.reset(Value(m_owner, i64(i32(m_imm.i))));
-                            case sizeof(i16): ret.reset(Value(m_owner, i64(i16(m_imm.i))));
-                            case sizeof(i8) : ret.reset(Value(m_owner, i64(i8(m_imm.i))));
-                            default: ret.reset(Value(m_owner, i64(m_imm.i)));
-                        }
-
-                        ret.setType(tp);
-                        return ret;
-                    }
-                }
-            }
-
             Value ret = m_owner->val(tp);
             m_owner->cvt(ret, *this);
             return ret;
-        } else {
-            // search for cast operators
-            {
-                // todo: access rights
-                Function* castOp = m_type->findConversionOperator(tp, FullAccessRights);
-                if (castOp) return m_owner->generateCall(castOp, {}, *this);
-            }
-        
-            // search for copy constructor
-            {
-                // todo: access rights
-                auto ctors = tp->findConstructors({ m_type }, true, FullAccessRights);
-
-                if (ctors.size() == 1) {
-                    Value result = m_owner->val(tp);
-                    m_owner->generateCall(ctors[0], { *this }, result);
-                    return result;
-                } else if (ctors.size() > 1) {
-                    m_owner->logError(
-                        "Construction of type '%s' with arguments (%s) is ambiguous",
-                        tp->getFullName().c_str(),
-                        m_type->getFullName().c_str()
-                    );
-
-                    for (u32 i = 0;i < ctors.size();i++) {
-                        m_owner->logInfo(
-                            "^ Could be '%s'",
-                            ctors[i]->getFullName().c_str()
-                        );
-                    }
-
-                    return Value();
-                }
-            }
         }
 
-        m_owner->logError(
-            "No conversion from type '%s' to '%s' is available",
-            m_type->getFullName().c_str(),
-            tp->getFullName().c_str()
-        );
+        Value result = m_owner->val(tp);
 
-        return Value();
+        // todo: access rights
+        m_owner->generateConstruction(result, { *this }, FullAccessRights);
+
+        return result;
     }
 
     Value Value::operator +  (const Value& rhs) const {
