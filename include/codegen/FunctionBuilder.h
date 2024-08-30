@@ -1,11 +1,11 @@
 #pragma once
 #include <codegen/types.h>
 #include <codegen/IR.h>
-#include <codegen/interfaces/IWithLogging.h>
 #include <codegen/SourceLocation.h>
 #include <codegen/SourceMap.h>
 #include <codegen/Scope.h>
 #include <utils/Array.h>
+#include <utils/interfaces/IWithLogging.h>
 
 namespace bind {
     class DataType;
@@ -835,13 +835,22 @@ namespace codegen {
             void generateConstruction(const Value& destPtr, const Array<Value>& args, AccessFlags accessMask = FullAccessRights);
 
             /**
+             * @brief Generates instructions for the destruction of an object
+             * 
+             * @param objPtr Object to destroy
+             * @param accessMask User-defined access mask. If a destructor has to be called, this will determine
+             * if it can be used
+             */
+            void generateDestruction(const Value& objPtr, AccessFlags accessMask = FullAccessRights);
+
+            /**
              * @brief Generates instructions for returning from the function. This will emit IR code that does
              * the following things:
              * 
              * - If the function returns on the stack, then code will be emitted to copy-construct `val` in the
              * memory pointed to by the return pointer
              * 
-             * - Code will be emitted to deconstruct all stack objects in the current scope and all parent scopes
+             * - Code will be emitted to destroy all stack objects in the current scope and all parent scopes
              * 
              * - Code will be emitted to free all active stack allocations in the current scope and all parent
              * scopes
@@ -1101,7 +1110,7 @@ namespace codegen {
 
             Value m_thisPtr;
             Array<Value> m_args;
-            Scope m_ownScope;
             Scope* m_currentScope;
+            Scope m_ownScope;
     };
 };

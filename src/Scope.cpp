@@ -146,22 +146,10 @@ namespace codegen {
         std::unordered_set<stack_id> freedIds;
 
         for (i64 i = i64(m_stackPointers.size()) - 1;i >= 0;i--) {
-            DataType* tp = ((PointerType*)m_stackPointers[u32(i)].getType())->getDestinationType();
-            auto props = tp->getProps();
-
-            Function* dtor = nullptr;
-            for (u32 p = 0;p < props.size();p++) {
-                if (props[p].flags.is_dtor) {
-                    dtor = (Function*)props[p].address.get();
-                    break;
-                }
-            }
-
-            if (dtor) {
-                // todo: Some planning has to be done to figure out how to
-                // determine if we should have access to this destructor
-                m_owner->generateCall(dtor, {}, m_stackPointers[u32(i)]);
-            }
+            // todo: Some planning has to be done to figure out how what
+            // access rights to use here
+            m_owner->generateDestruction(m_stackPointers[u32(i)]);
+            
             stack_id ref = m_stackPointers[u32(i)].getStackRef();
             m_owner->stackFree(ref);
             freedIds.insert(ref);

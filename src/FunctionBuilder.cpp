@@ -11,7 +11,7 @@ namespace codegen {
     FunctionBuilder::FunctionBuilder(Function* func)
         : m_function(func), m_parent(nullptr), m_nextLabel(1), m_nextReg(1),
         m_nextAlloc(1), m_currentSrcLoc({ 0, 0, 0, 0, 0, 0, 0 }),
-        m_validationEnabled(false), m_ownScope(this), m_currentScope(&m_ownScope)
+        m_validationEnabled(false), m_currentScope(nullptr), m_ownScope(this)
     {
         m_strings.reserve(128);
         addString("");
@@ -21,7 +21,7 @@ namespace codegen {
     FunctionBuilder::FunctionBuilder(Function* func, FunctionBuilder* parent)
         : m_function(func), m_parent(parent), m_nextLabel(1), m_nextReg(1),
         m_nextAlloc(1), m_currentSrcLoc({ 0, 0, 0, 0, 0, 0, 0 }),
-        m_validationEnabled(false), m_ownScope(this), m_currentScope(&m_ownScope)
+        m_validationEnabled(false), m_currentScope(nullptr), m_ownScope(this)
     {
         m_strings.reserve(128);
         addString("");
@@ -50,6 +50,7 @@ namespace codegen {
         }
 
         Value result = val(destType ? destType : ptr.m_type);
+        result.m_stackRef = ptr.m_stackRef;
 
         if (offset.isImm()) {
             if (oi.is_unsigned) {
@@ -110,15 +111,24 @@ namespace codegen {
             }
         }
 
-        Value result = val(destType ? destType : ptr.m_type);
+        Value result;
 
-        if (offset > 0) {
+        if (offset == 0) {
+            result.reset(ptr);
+            if (destType) result.m_type = destType;
+        } else if (offset > 0) {
+            result.reset(val(destType ? destType : ptr.m_type));
+            result.m_stackRef = ptr.m_stackRef;
+
             Instruction i(OpCode::uadd);
             i.operands[0].reset(result);
             i.operands[1].reset(ptr);
             i.operands[2].reset(val(offset));
             add(i);
         } else {
+            result.reset(val(destType ? destType : ptr.m_type));
+            result.m_stackRef = ptr.m_stackRef;
+
             Instruction i(OpCode::usub);
             i.operands[0].reset(result);
             i.operands[1].reset(ptr);
@@ -209,6 +219,8 @@ namespace codegen {
     }
 
     void FunctionBuilder::generateConstruction(const Value& destPtr, const Array<Value>& args, AccessFlags accessMask) {
+        if (destPtr.isEmpty()) return;
+
         if (!destPtr.m_type->getInfo().is_pointer) {
             throw Exception("FunctionBuilder::generateConstruction - destPtr should have a pointer type");
         }
@@ -224,37 +236,11 @@ namespace codegen {
                     return;
                 }
 
-                Array<DataType*> argTps = args.map([](const Value& v) { return v.m_type; });
-                Function* ctor = nullptr;
-                Array<Function*> ctors = tp->findConstructors(argTps, false, accessMask, &ctor);
-
-                if (ctors.size() == 0) {
-                    logError(
-                        "Value of type '%s' can not be initialized from a value of type '%s', or no constructor is accessible",
-                        tp->getFullName().c_str(),
-                        args[0].m_type->getFullName()
-                    );
-                } else if (ctors.size() == 1) {
-                    generateCall(ctors[0], args, destPtr);
-                } else if (ctor) {
-                    generateCall(ctor, args, destPtr);
-                } else {
-                    String argStr;
-                    for (u32 i = 0;i < args.size();i++) {
-                        if (i > 0) argStr += ", ";
-                        argStr += args[i].m_type->getFullName();
-                    }
-
-                    logError(
-                        "Constructor for type '%s' with arguments (%s) is ambiguous",
-                        tp->getFullName().c_str(),
-                        argStr.c_str()
-                    );
-
-                    for (u32 i = 0;i < ctors.size();i++) {
-                        logInfo("^ Could be '%s'", ctors[i]->getSignature()->getFullName().c_str());
-                    }
-                }
+                logError(
+                    "Value of type '%s' can not be initialized from a value of type '%s'",
+                    tp->getFullName().c_str(),
+                    args[0].m_type->getFullName()
+                );
 
                 return;
             }
@@ -265,21 +251,100 @@ namespace codegen {
         Array<Function*> ctors = tp->findConstructors(argTps, false, accessMask, &ctor);
 
         if (ctors.size() == 0) {
-            String argStr;
-            for (u32 i = 0;i < args.size();i++) {
-                if (i > 0) argStr += ", ";
-                argStr += args[i].m_type->getFullName();
-            }
+            if (args.size() == 0 && info.is_trivially_constructible) {
+                // default constructor
+                auto props = tp->getProps();
+                for (u32 i = 0;i < props.size();i++) {
+                    if (props[i].offset == -1) continue;
+                    if (props[i].type->getInfo().is_primitive || props[i].type->getInfo().is_pointer) continue;
+                    Value ptr = ptrOffset(destPtr, props[i].offset, props[i].type->getPointerType());
+                    generateConstruction(ptr, {}, accessMask);
+                }
+            } else if (
+                args.size() == 1 && (
+                    (
+                        // must check the properties of the pointed to type, not the pointer...
+                        args[0].m_type->getInfo().is_pointer &&
+                        ((PointerType*)args[0].m_type)->getDestinationType()->isConvertibleTo(tp, accessMask)
+                    ) ||
+                    (
+                        !args[0].m_type->getInfo().is_pointer &&
+                        args[0].m_type->isConvertibleTo(tp, accessMask)
+                    )
+                )
+            ) {
+                DataType* fromTp = args[0].m_type;
+                if (fromTp->getInfo().is_pointer) fromTp = ((PointerType*)args[0].m_type)->getDestinationType();
 
-            logError(
-                "No constructor for type '%s' with arguments (%s) is accessible",
-                tp->getFullName().c_str(),
-                argStr.c_str()
-            );
+                Function* cast = fromTp->findConversionOperator(tp, accessMask);
+                if (cast) call(cast, destPtr, { args[0] });
+                else if (info.is_trivially_copyable) {
+                    // default conversion / copy constructor
+                    auto props = tp->getProps();
+                    for (u32 i = 0;i < props.size();i++) {
+                        if (props[i].offset == -1) continue;
+
+                        auto sProps = fromTp->findProperties(props[i].name, accessMask);
+                        for (u32 j = 0;j < sProps.size();j++) {
+                            if (sProps[j]->offset == -1) continue;
+                            if (sProps[j]->name != props[i].name) continue;
+                            
+                            Value destProp = ptrOffset(destPtr, props[i].offset, props[i].type->getPointerType());
+                            Value srcProp = ptrOffset(args[0], sProps[j]->offset, sProps[j]->type->getPointerType());
+                            generateConstruction(destProp, { *srcProp }, accessMask);
+                            break;
+                        }
+                    }
+                } else {
+                    String argStr;
+                    for (u32 i = 0;i < args.size();i++) {
+                        if (i > 0) argStr += ", ";
+                        argStr += args[i].m_type->getFullName();
+                    }
+
+                    logError(
+                        "No constructor for type '%s' with arguments (%s) is accessible",
+                        tp->getFullName().c_str(),
+                        argStr.c_str()
+                    );
+                    logInfo(
+                        "^ Note: Type '%s' is convertible to type '%s', but type '%s' is not trivially copyable. A copy constructor needs to be called, but none exists",
+                        args[0].m_type->getFullName().c_str(),
+                        tp->getFullName().c_str(),
+                        tp->getFullName().c_str()
+                    );
+                }
+            } else {
+                String argStr;
+                for (u32 i = 0;i < args.size();i++) {
+                    if (i > 0) argStr += ", ";
+                    argStr += args[i].m_type->getFullName();
+                }
+
+                logError(
+                    "No constructor for type '%s' with arguments (%s) is accessible",
+                    tp->getFullName().c_str(),
+                    argStr.c_str()
+                );
+            }
         } else if (ctors.size() == 1) {
-            generateCall(ctors[0], args, destPtr);
+            // constructors are wrapped in cdecls because they have to be.
+            // 'this' pointer should be passed as first argument instead
+            // of the normal route
+            Array<Value> argsWithThisPtr(args.size() + 1);
+            argsWithThisPtr.push(destPtr);
+            argsWithThisPtr.append(args);
+
+            generateCall(ctors[0], argsWithThisPtr);
         } else if (ctor) {
-            generateCall(ctor, args, destPtr);
+            // constructors are wrapped in cdecls because they have to be.
+            // 'this' pointer should be passed as first argument instead
+            // of the normal route
+            Array<Value> argsWithThisPtr(args.size() + 1);
+            argsWithThisPtr.push(destPtr);
+            argsWithThisPtr.append(args);
+
+            generateCall(ctor, argsWithThisPtr);
         } else {
             String argStr;
             for (u32 i = 0;i < args.size();i++) {
@@ -295,6 +360,45 @@ namespace codegen {
 
             for (u32 i = 0;i < ctors.size();i++) {
                 logInfo("^ Could be '%s'", ctors[i]->getSignature()->getFullName().c_str());
+            }
+        }
+    }
+
+    void FunctionBuilder::generateDestruction(const Value& objPtr, AccessFlags accessMask) {
+        if (objPtr.isEmpty()) return;
+        if (!objPtr.m_type->getInfo().is_pointer) {
+            throw Exception("FunctionBuilder::generateDestruction - objPtr must have a pointer type");
+        }
+
+        DataType* tp = ((PointerType*)objPtr.m_type)->getDestinationType();
+        auto props = tp->getProps();
+
+        Function* dtor = nullptr;
+        for (u32 p = 0;p < props.size();p++) {
+            if (props[p].flags.is_dtor) {
+                if (props[p].accessFlags != PublicAccess && (props[p].accessFlags & accessMask) != props[p].accessFlags) continue;
+                dtor = (Function*)props[p].address.get();
+                break;
+            }
+        }
+
+        if (dtor) {
+            // todo: Some planning has to be done to figure out how to
+            // determine if we should have access to this destructor
+
+            // destructors are wrapped in cdecls because they have to be.
+            // 'this' pointer should be passed as first argument instead
+            // of the normal route
+            generateCall(dtor, { objPtr });
+        } else if (!tp->getInfo().is_trivially_destructible) {
+            logError("Type '%s' is not trivially destructible, but no destructor was found", tp->getFullName().c_str());
+        } else {
+            // generate destruction code for all non-static/non-primitive members
+            for (u32 i = 0;i < props.size();i++) {
+                if (props[i].offset == -1) continue;
+                if (props[i].type->getInfo().is_primitive || props[i].type->getInfo().is_pointer) continue;
+                Value ptr = ptrOffset(objPtr, props[i].offset, props[i].type->getPointerType());
+                generateDestruction(ptr, accessMask);
             }
         }
     }
@@ -327,6 +431,7 @@ namespace codegen {
         if (!ti.is_primitive && !ti.is_pointer) {
             stack_id id = stackAlloc(ti.size);
             Value mem = Value(m_nextReg++, this, tp->getPointerType());
+            mem.m_stackRef = id;
             stackPtr(mem, id);
 
             m_currentScope->add(id);
@@ -423,6 +528,16 @@ namespace codegen {
                         op.m_nameStringId = v.m_nameStringId;
                     }
                 }
+            }
+
+            Scope* s = m_currentScope;
+            while (s) {
+                for (Value& ptr : s->m_stackPointers) {
+                    if (ptr.m_regId == v.m_regId) {
+                        ptr.m_nameStringId = v.m_nameStringId;
+                    }
+                }
+                s = s->m_parent;
             }
         }
     }

@@ -226,14 +226,18 @@ namespace codegen {
 
     InstructionRef FunctionBuilder::load(const Value& dest, const Value& src, u32 offset) {
         if (m_validationEnabled) {
-            DataType* destTp = ((PointerType*)src.m_type)->getDestinationType();
+            DataType* srcTp = ((PointerType*)src.m_type)->getDestinationType();
             
-            if (!destTp->getInfo().is_primitive && !destTp->getInfo().is_pointer) {
-                auto prop = getProp(destTp, offset);
-                if (!prop || !prop->type->isEqualTo(src.m_type)) {
+            if (!srcTp->getInfo().is_primitive && !srcTp->getInfo().is_pointer) {
+                auto prop = getProp(srcTp, offset);
+                if (!prop || !prop->type->isEqualTo(dest.m_type)) {
                     throw Exception("FunctionBuilder::load - destination value has different type from the property pointed to by the source + offset");
                 }
-            } else if (!src.m_type->isEqualTo(destTp)) {
+
+                if (!prop->flags.can_read) {
+                    throw Exception("FunctionBuilder::load - the property pointed to by the source + offset has the 'can_read' flag set to 0");
+                }
+            } else if (!dest.m_type->isEqualTo(srcTp)) {
                 throw Exception("FunctionBuilder::load - destination value has different type from the value pointed to by the source");
             }
         }
@@ -253,6 +257,10 @@ namespace codegen {
                 auto prop = getProp(destTp, offset);
                 if (!prop || !prop->type->isEqualTo(src.m_type)) {
                     throw Exception("FunctionBuilder::store - source value has different type from the property pointed to by the destination + offset");
+                }
+
+                if (!prop->flags.can_write) {
+                    throw Exception("FunctionBuilder::store - the property pointed to by the source + offset has the 'can_write' flag set to 0");
                 }
             } else if (!src.m_type->isEqualTo(destTp)) {
                 throw Exception("FunctionBuilder::store - source value has different type from the value pointed to by the destination");
@@ -404,8 +412,9 @@ namespace codegen {
     }
 
     InstructionRef FunctionBuilder::ret(const Value& val) {
+        DataType* retTp = m_function->getSignature()->getReturnType();
+        
         if (m_validationEnabled) {
-            DataType* retTp = m_function->getSignature()->getReturnType();
             auto retInfo = retTp->getInfo();
 
             if (retInfo.size == 0) {
@@ -420,15 +429,15 @@ namespace codegen {
                 } else {
                     if (val.isEmpty()) {
                         throw Exception("FunctionBuilder::ret - function returns a primitive value, but a return value was not provided");
-                    } else if (!retTp->isEqualTo(val.m_type)) {
-                        throw Exception("FunctionBuilder::ret - provided value should have a type that is equal to the function's return type");
+                    } else if (!retTp->isConvertibleTo(val.m_type)) {
+                        throw Exception("FunctionBuilder::ret - provided value should have a type that is convertible to the function's return type");
                     }
                 }
             }
         }
 
         Instruction i(OpCode::ret);
-        i.operands[0].reset(val);
+        i.operands[0].reset(val.isEmpty() ? val : val.convertedTo(retTp));
         return add(i);
     }
 

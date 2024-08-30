@@ -2,7 +2,6 @@
 #include <codegen/CodeHolder.h>
 #include <codegen/PostProcessGroup.h>
 #include <codegen/IR.h>
-#include <codegen/interfaces/IWithLogging.h>
 #include <codegen/FunctionBuilder.h>
 #include <bind/Function.h>
 #include <utils/Array.hpp>
