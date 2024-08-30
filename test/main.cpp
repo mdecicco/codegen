@@ -1,4 +1,6 @@
 #include <codegen/FunctionBuilder.h>
+#include <codegen/CodeHolder.h>
+#include <codegen/Execute.h>
 #include <utils/interfaces/ILogHandler.h>
 #include <bind/bind.h>
 using namespace codegen;
@@ -98,9 +100,6 @@ int main(int argc, const char** argv) {
                 i++;
             }, [&](){
                 something += i;
-                fb.generateIf(something > i, [&]() {
-                    fb.generateReturn(i);
-                });
             });
 
             Value v1 = fb.val(ts1.getType());
@@ -111,7 +110,7 @@ int main(int argc, const char** argv) {
             fb.store(fb.val(2), v1, offsetof(test_struct_1, c));
 
             fb.generateIf(something > arg1, [&]() {
-                fb.generateReturn(i);
+                fb.generateReturn(something);
             });
 
             something -= fb.generateCall(&fb, { arg1, arg2 });
@@ -123,6 +122,22 @@ int main(int argc, const char** argv) {
         for (u32 i = 0;i < code.size();i++) {
             printf("0x%0.3X | %s\n", i, code[i].toString().c_str());
         }
+        fflush(stdout);
+        
+        CodeHolder ch(code);
+        ch.owner = &fb;
+
+        TestExecuter te(&ch);
+        te.setArg(0, 10);
+        te.setArg(1, 15);
+
+        i32 result = 0;
+        te.setReturnValuePointer(&result);
+        te.execute();
+
+        i32 thisAlsoWorks = te.getRegister<i32>(something);
+
+        printf("result: %d\n", result);
         fflush(stdout);
     }
 
