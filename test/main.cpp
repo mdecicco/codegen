@@ -68,6 +68,7 @@ int main(int argc, const char** argv) {
         ErrHandler h;
 
         Function fn = Function("test", Registry::Signature<i32, i32, i32>(), Registry::GlobalNamespace());
+
         FunctionBuilder fb = FunctionBuilder(&fn);
         fb.setLogHandler(&h);
 
@@ -109,11 +110,7 @@ int main(int argc, const char** argv) {
             fb.store(fb.val(1), v1, offsetof(test_struct_1, b));
             fb.store(fb.val(2), v1, offsetof(test_struct_1, c));
 
-            fb.generateIf(something > arg1, [&]() {
-                fb.generateReturn(something);
-            });
-
-            something -= fb.generateCall(&fb, { arg1, arg2 });
+            something -= fb.generateCall(&fb, { fb.val(i32(2)), fb.val(i32(3)) });
         });
 
         fb.generateReturn(something);
@@ -127,15 +124,13 @@ int main(int argc, const char** argv) {
         CodeHolder ch(code);
         ch.owner = &fb;
 
-        TestExecuter te(&ch);
-        te.setArg(0, 10);
-        te.setArg(1, 15);
+        TestExecuterCallHandler te(&ch);
+        fn.setCallHandler(&te);
 
         i32 result = 0;
-        te.setReturnValuePointer(&result);
-        te.execute();
-
-        i32 thisAlsoWorks = te.getRegister<i32>(something);
+        i32 a1 = 10, a2 = 15;
+        void* args1[] = { &a1, &a2 };
+        te.call(&fn, &result, args1);
 
         printf("result: %d\n", result);
         fflush(stdout);

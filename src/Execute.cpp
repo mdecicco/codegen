@@ -6,12 +6,46 @@
 #include <bind/DataType.h>
 #include <bind/Registry.h>
 #include <bind/ValuePointer.h>
+#include <utils/Exception.h>
 #include <utils/Array.hpp>
 
 namespace codegen {
+    TestExecuterCallHandler::TestExecuterCallHandler(CodeHolder* ch) : m_code(ch) {
+    }
+
+    void TestExecuterCallHandler::call(Function* target, void* retDest, void** args) {
+        TestExecuter exe(m_code);
+
+        exe.setReturnValuePointer(retDest);
+
+        FunctionType* sig = target->getSignature();
+        auto argInfo = sig->getArgs();
+
+        u32 off = 0;
+        if (sig->getThisType()) {
+            exe.setThisPtr(args[0]);
+            off++;
+        }
+
+        for (u32 i = 0;i < argInfo.size();i++) {
+            const type_meta& ai = argInfo[i].type->getInfo();
+
+            if (ai.is_primitive || ai.is_pointer) {
+                if (ai.size == sizeof(u64)) exe.setArg(i, *(u64*)args[i + off]);
+                else if (ai.size == sizeof(u32)) exe.setArg(i, *(u32*)args[i + off]);
+                else if (ai.size == sizeof(u16)) exe.setArg(i, *(u16*)args[i + off]);
+                else if (ai.size == sizeof(u8)) exe.setArg(i, *(u8*)args[i + off]);
+            } else {
+                exe.setArg(i, args[i + off]);
+            }
+        }
+
+        exe.execute();
+    }
+
     TestExecuter::TestExecuter(CodeHolder* ch)
         : m_code(ch), m_fb(ch->owner), m_func(m_fb->getFunction()), m_stack(nullptr), m_registers(nullptr),
-          m_returnPtr(nullptr), m_thisPtr(nullptr), m_stackOffset(0), m_instructionIdx(0)
+          m_returnPtr(nullptr), m_stackOffset(0), m_instructionIdx(0)
     {
         u32 maxStackSize = 0;
         u32 maxRegister = 0;
@@ -107,8 +141,7 @@ namespace codegen {
                     break;
                 }
                 case OpCode::resolve: {
-                    if (op1.isImm()) reg0 = imm1.u;
-                    else reg0 = reg1;
+                    reg0 = v1;
                     break;
                 }
                 case OpCode::load: {
@@ -124,10 +157,10 @@ namespace codegen {
                 case OpCode::store: {
                     void* ptr = (reinterpret_cast<u8*>(reg1) + imm2.u);
                     switch (ti0.size) {
-                        case 1: { *(u8*)ptr = u8(reg0); break; }
-                        case 2: { *(u16*)ptr = u16(reg0); break; }
-                        case 4: { *(u32*)ptr = u32(reg0); break; }
-                        case 8: { *(u64*)ptr = u64(reg0); break; }
+                        case 1: { *(u8*)ptr = u8(v0); break; }
+                        case 2: { *(u16*)ptr = u16(v0); break; }
+                        case 4: { *(u32*)ptr = u32(v0); break; }
+                        case 8: { *(u64*)ptr = u64(v0); break; }
                     }
                     break;
                 }
@@ -136,6 +169,8 @@ namespace codegen {
                     continue;
                 }
                 case OpCode::cvt: {
+                    #pragma warning(push, 0)
+
                     auto& ai = ti1;
                     auto& bi = Registry::GetType(imm2)->getInfo();
                     void* a = &reg0;
@@ -357,25 +392,51 @@ namespace codegen {
                         }
                     }
                     
+                    #pragma warning(pop)
                     break;
                 }
                 case OpCode::param: {
-                    if (op0.isReg()) m_nextCallParams.push(reg0);
-                    else m_nextCallParams.push(imm0.u);
+                    m_nextCallParams.push(v0);
                     break;
                 }
                 case OpCode::call: {
-                    Function* fn = (Function*)op1.getImm().p;
+                    if (op0.isImm()) {
+                        Function* fn = (Function*)op0.getImm().p;
+                        FunctionType* sig = fn->getSignature();
+                        auto args = sig->getArgs();
+                        void* outArgs[32];
+                        void* retPtr = nullptr;
+
+                        u32 argOffset = 0;
+                        if (sig->getThisType()) {
+                            outArgs[0] = &reg2;
+                            argOffset = 1;
+                        }
+
+                        const type_meta& ri = sig->getReturnType()->getInfo();
+                        if (ri.is_primitive || ri.is_pointer) retPtr = &reg1;
+                        else retPtr = reinterpret_cast<void*>(reg1);
+
+                        for (u32 i = 0;i < m_nextCallParams.size();i++) {
+                            if (i >= args.size()) break;
+                            outArgs[i + argOffset] = &m_nextCallParams[i];
+                        }
+
+                        fn->getCallHandler()->call(fn, retPtr, outArgs);
+                    } else {
+                        // todo: function values
+                    }
+
                     m_nextCallParams.clear();
                     break;
                 }
                 case OpCode::ret: {
                     if (!op0.isEmpty()) {
                         switch (m_func->getSignature()->getReturnType()->getInfo().size) {
-                            case 1: { *(u8*)m_returnPtr = u8(reg0); break; }
-                            case 2: { *(u16*)m_returnPtr = u16(reg0); break; }
-                            case 4: { *(u32*)m_returnPtr = u32(reg0); break; }
-                            case 8: { *(u64*)m_returnPtr = u64(reg0); break; }
+                            case 1: { *(u8*)m_returnPtr = u8(v0); break; }
+                            case 2: { *(u16*)m_returnPtr = u16(v0); break; }
+                            case 4: { *(u32*)m_returnPtr = u32(v0); break; }
+                            case 8: { *(u64*)m_returnPtr = u64(v0); break; }
                         }
                     }
 
@@ -387,7 +448,7 @@ namespace codegen {
                     break;
                 }
                 case OpCode::_not: { reg0 = !v1; break; }
-                case OpCode::inv: { reg0 = ~reg1; break; }
+                case OpCode::inv: { reg0 = ~v1; break; }
                 case OpCode::shl: { reg0 = v1 << v2; break; }
                 case OpCode::shr: { reg0 = v1 >> v2; break; }
                 case OpCode::land: { reg0 = v1 && v2; break; }
@@ -395,7 +456,7 @@ namespace codegen {
                 case OpCode::lor: { reg0 = v1 || v2; break; }
                 case OpCode::bor: { reg0 = v1 | v2; break; }
                 case OpCode::_xor: { reg0 = v1 ^ v2; break; }
-                case OpCode::assign: { reg0 = reg1; break; }
+                case OpCode::assign: { reg0 = v1; break; }
                 case OpCode::vset: {
                     break;
                 }
@@ -432,26 +493,26 @@ namespace codegen {
                 case OpCode::vcross: {
                     break;
                 }
-                case OpCode::iadd: { *((i64*)&reg0) = *((i64*)&reg1) + *((i64*)&reg2); break; }
-                case OpCode::uadd: { *((u64*)&reg0) = *((u64*)&reg1) + *((u64*)&reg2); break; }
-                case OpCode::fadd: { *((f32*)&reg0) = *((f32*)&reg1) + *((f32*)&reg2); break; }
-                case OpCode::dadd: { *((f64*)&reg0) = *((f64*)&reg1) + *((f64*)&reg2); break; }
-                case OpCode::isub: { *((i64*)&reg0) = *((i64*)&reg1) - *((i64*)&reg2); break; }
-                case OpCode::usub: { *((u64*)&reg0) = *((u64*)&reg1) - *((u64*)&reg2); break; }
-                case OpCode::fsub: { *((f32*)&reg0) = *((f32*)&reg1) - *((f32*)&reg2); break; }
-                case OpCode::dsub: { *((f64*)&reg0) = *((f64*)&reg1) - *((f64*)&reg2); break; }
-                case OpCode::imul: { *((i64*)&reg0) = *((i64*)&reg1) * *((i64*)&reg2); break; }
-                case OpCode::umul: { *((u64*)&reg0) = *((u64*)&reg1) * *((u64*)&reg2); break; }
-                case OpCode::fmul: { *((f32*)&reg0) = *((f32*)&reg1) * *((f32*)&reg2); break; }
-                case OpCode::dmul: { *((f64*)&reg0) = *((f64*)&reg1) * *((f64*)&reg2); break; }
-                case OpCode::idiv: { *((i64*)&reg0) = *((i64*)&reg1) / *((i64*)&reg2); break; }
-                case OpCode::udiv: { *((u64*)&reg0) = *((u64*)&reg1) / *((u64*)&reg2); break; }
-                case OpCode::fdiv: { *((f32*)&reg0) = *((f32*)&reg1) / *((f32*)&reg2); break; }
-                case OpCode::ddiv: { *((f64*)&reg0) = *((f64*)&reg1) / *((f64*)&reg2); break; }
-                case OpCode::imod: { *((i64*)&reg0) = *((i64*)&reg1) % *((i64*)&reg2); break; }
-                case OpCode::umod: { *((u64*)&reg0) = *((u64*)&reg1) % *((u64*)&reg2); break; }
-                case OpCode::fmod: { *((f32*)&reg0) = fmodf(*((f32*)&reg1), *((f32*)&reg2)); break; }
-                case OpCode::dmod: { *((f64*)&reg0) = fmod (*((f64*)&reg1), *((f64*)&reg2)); break; }
+                case OpCode::iadd: { *((i64*)&reg0) = *((i64*)&v1) + *((i64*)&v2); break; }
+                case OpCode::uadd: { *((u64*)&reg0) = *((u64*)&v1) + *((u64*)&v2); break; }
+                case OpCode::fadd: { *((f32*)&reg0) = *((f32*)&v1) + *((f32*)&v2); break; }
+                case OpCode::dadd: { *((f64*)&reg0) = *((f64*)&v1) + *((f64*)&v2); break; }
+                case OpCode::isub: { *((i64*)&reg0) = *((i64*)&v1) - *((i64*)&v2); break; }
+                case OpCode::usub: { *((u64*)&reg0) = *((u64*)&v1) - *((u64*)&v2); break; }
+                case OpCode::fsub: { *((f32*)&reg0) = *((f32*)&v1) - *((f32*)&v2); break; }
+                case OpCode::dsub: { *((f64*)&reg0) = *((f64*)&v1) - *((f64*)&v2); break; }
+                case OpCode::imul: { *((i64*)&reg0) = *((i64*)&v1) * *((i64*)&v2); break; }
+                case OpCode::umul: { *((u64*)&reg0) = *((u64*)&v1) * *((u64*)&v2); break; }
+                case OpCode::fmul: { *((f32*)&reg0) = *((f32*)&v1) * *((f32*)&v2); break; }
+                case OpCode::dmul: { *((f64*)&reg0) = *((f64*)&v1) * *((f64*)&v2); break; }
+                case OpCode::idiv: { *((i64*)&reg0) = *((i64*)&v1) / *((i64*)&v2); break; }
+                case OpCode::udiv: { *((u64*)&reg0) = *((u64*)&v1) / *((u64*)&v2); break; }
+                case OpCode::fdiv: { *((f32*)&reg0) = *((f32*)&v1) / *((f32*)&v2); break; }
+                case OpCode::ddiv: { *((f64*)&reg0) = *((f64*)&v1) / *((f64*)&v2); break; }
+                case OpCode::imod: { *((i64*)&reg0) = *((i64*)&v1) % *((i64*)&v2); break; }
+                case OpCode::umod: { *((u64*)&reg0) = *((u64*)&v1) % *((u64*)&v2); break; }
+                case OpCode::fmod: { *((f32*)&reg0) = fmodf(*((f32*)&v1), *((f32*)&v2)); break; }
+                case OpCode::dmod: { *((f64*)&reg0) = fmod (*((f64*)&v1), *((f64*)&v2)); break; }
                 case OpCode::ineg: { *((i64*)&reg0) = -*((i64*)&reg0); break; }
                 case OpCode::fneg: { *((f32*)&reg0) = -*((f32*)&reg0); break; }
                 case OpCode::dneg: { *((f64*)&reg0) = -*((f64*)&reg0); break; }
@@ -463,30 +524,30 @@ namespace codegen {
                 case OpCode::udec: { (*((u64*)&reg0))--; break; }
                 case OpCode::fdec: { (*((f32*)&reg0))--; break; }
                 case OpCode::ddec: { (*((f64*)&reg0))--; break; }
-                case OpCode::ilt: { *((i64*)&reg0) = *((i64*)&reg1) < *((i64*)&reg2); break; }
-                case OpCode::ult: { *((u64*)&reg0) = *((u64*)&reg1) < *((u64*)&reg2); break; }
-                case OpCode::flt: { *((f32*)&reg0) = *((f32*)&reg1) < *((f32*)&reg2); break; }
-                case OpCode::dlt: { *((f64*)&reg0) = *((f64*)&reg1) < *((f64*)&reg2); break; }
-                case OpCode::ilte: { *((i64*)&reg0) = *((i64*)&reg1) <= *((i64*)&reg2); break; }
-                case OpCode::ulte: { *((u64*)&reg0) = *((u64*)&reg1) <= *((u64*)&reg2); break; }
-                case OpCode::flte: { *((f32*)&reg0) = *((f32*)&reg1) <= *((f32*)&reg2); break; }
-                case OpCode::dlte: { *((f64*)&reg0) = *((f64*)&reg1) <= *((f64*)&reg2); break; }
-                case OpCode::igt: { *((i64*)&reg0) = *((i64*)&reg1) > *((i64*)&reg2); break; }
-                case OpCode::ugt: { *((u64*)&reg0) = *((u64*)&reg1) > *((u64*)&reg2); break; }
-                case OpCode::fgt: { *((f32*)&reg0) = *((f32*)&reg1) > *((f32*)&reg2); break; }
-                case OpCode::dgt: { *((f64*)&reg0) = *((f64*)&reg1) > *((f64*)&reg2); break; }
-                case OpCode::igte: { *((i64*)&reg0) = *((i64*)&reg1) >= *((i64*)&reg2); break; }
-                case OpCode::ugte: { *((u64*)&reg0) = *((u64*)&reg1) >= *((u64*)&reg2); break; }
-                case OpCode::fgte: { *((f32*)&reg0) = *((f32*)&reg1) >= *((f32*)&reg2); break; }
-                case OpCode::dgte: { *((f64*)&reg0) = *((f64*)&reg1) >= *((f64*)&reg2); break; }
-                case OpCode::ieq: { *((i64*)&reg0) = *((i64*)&reg1) == *((i64*)&reg2); break; }
-                case OpCode::ueq: { *((u64*)&reg0) = *((u64*)&reg1) == *((u64*)&reg2); break; }
-                case OpCode::feq: { *((f32*)&reg0) = *((f32*)&reg1) == *((f32*)&reg2); break; }
-                case OpCode::deq: { *((f64*)&reg0) = *((f64*)&reg1) == *((f64*)&reg2); break; }
-                case OpCode::ineq: { *((i64*)&reg0) = *((i64*)&reg1) != *((i64*)&reg2); break; }
-                case OpCode::uneq: { *((u64*)&reg0) = *((u64*)&reg1) != *((u64*)&reg2); break; }
-                case OpCode::fneq: { *((f32*)&reg0) = *((f32*)&reg1) != *((f32*)&reg2); break; }
-                case OpCode::dneq: { *((f64*)&reg0) = *((f64*)&reg1) != *((f64*)&reg2); break; }
+                case OpCode::ilt: { *((i64*)&reg0) = *((i64*)&v1) < *((i64*)&v2); break; }
+                case OpCode::ult: { *((u64*)&reg0) = *((u64*)&v1) < *((u64*)&v2); break; }
+                case OpCode::flt: { *((f32*)&reg0) = *((f32*)&v1) < *((f32*)&v2); break; }
+                case OpCode::dlt: { *((f64*)&reg0) = *((f64*)&v1) < *((f64*)&v2); break; }
+                case OpCode::ilte: { *((i64*)&reg0) = *((i64*)&v1) <= *((i64*)&v2); break; }
+                case OpCode::ulte: { *((u64*)&reg0) = *((u64*)&v1) <= *((u64*)&v2); break; }
+                case OpCode::flte: { *((f32*)&reg0) = *((f32*)&v1) <= *((f32*)&v2); break; }
+                case OpCode::dlte: { *((f64*)&reg0) = *((f64*)&v1) <= *((f64*)&v2); break; }
+                case OpCode::igt: { *((i64*)&reg0) = *((i64*)&v1) > *((i64*)&v2); break; }
+                case OpCode::ugt: { *((u64*)&reg0) = *((u64*)&v1) > *((u64*)&v2); break; }
+                case OpCode::fgt: { *((f32*)&reg0) = *((f32*)&v1) > *((f32*)&v2); break; }
+                case OpCode::dgt: { *((f64*)&reg0) = *((f64*)&v1) > *((f64*)&v2); break; }
+                case OpCode::igte: { *((i64*)&reg0) = *((i64*)&v1) >= *((i64*)&v2); break; }
+                case OpCode::ugte: { *((u64*)&reg0) = *((u64*)&v1) >= *((u64*)&v2); break; }
+                case OpCode::fgte: { *((f32*)&reg0) = *((f32*)&v1) >= *((f32*)&v2); break; }
+                case OpCode::dgte: { *((f64*)&reg0) = *((f64*)&v1) >= *((f64*)&v2); break; }
+                case OpCode::ieq: { *((i64*)&reg0) = *((i64*)&v1) == *((i64*)&v2); break; }
+                case OpCode::ueq: { *((u64*)&reg0) = *((u64*)&v1) == *((u64*)&v2); break; }
+                case OpCode::feq: { *((f32*)&reg0) = *((f32*)&v1) == *((f32*)&v2); break; }
+                case OpCode::deq: { *((f64*)&reg0) = *((f64*)&v1) == *((f64*)&v2); break; }
+                case OpCode::ineq: { *((i64*)&reg0) = *((i64*)&v1) != *((i64*)&v2); break; }
+                case OpCode::uneq: { *((u64*)&reg0) = *((u64*)&v1) != *((u64*)&v2); break; }
+                case OpCode::fneq: { *((f32*)&reg0) = *((f32*)&v1) != *((f32*)&v2); break; }
+                case OpCode::dneq: { *((f64*)&reg0) = *((f64*)&v1) != *((f64*)&v2); break; }
                 default: break;
             }
         }

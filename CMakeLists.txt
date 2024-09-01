@@ -10,12 +10,7 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
 
-set(
-    codegen_include_dirs
-    ${CMAKE_CURRENT_SOURCE_DIR}/deps/bind/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/deps/bind/deps/utils/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
-)
+set(TSN_CODEGEN_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include CACHE STRING "TSN Codegen Include Dir")
 
 set (all_sources "")
 macro(add_sources group dir)
@@ -42,10 +37,11 @@ add_sources("src/interfaces" "./interfaces")
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
-include_directories(${codegen_include_dirs})
-link_directories(
-    ${CMAKE_CURRENT_SOURCE_DIR}/deps/bind/lib
-    ${CMAKE_CURRENT_SOURCE_DIR}/deps/bind/deps/utils/lib
+include_directories(
+    ${TSN_CODEGEN_INCLUDE_DIR}
+    ${TSN_BIND_INCLUDE_DIR}
+    ${TSN_UTILS_INCLUDE_DIR}
+    ${FFI_INCLUDE_DIR}
 )
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/deps/bind)

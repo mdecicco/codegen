@@ -1,6 +1,7 @@
 #pragma once
 #include <codegen/types.h>
 #include <codegen/Value.h>
+#include <bind/interfaces/ICallHandler.h>
 #include <utils/Array.h>
 #include <type_traits>
 #include <unordered_map>
@@ -11,6 +12,16 @@ namespace bind {
 
 namespace codegen {
     class CodeHolder;
+
+    class TestExecuterCallHandler : public ICallHandler {
+        public:
+            TestExecuterCallHandler(CodeHolder* ch);
+
+            virtual void call(Function* target, void* retDest, void** args);
+        
+        protected:
+            CodeHolder* m_code;
+    };
 
     class TestExecuter {
         public:
@@ -71,7 +82,6 @@ namespace codegen {
             u8* m_stack;
             u64* m_registers;
             void* m_returnPtr;
-            void* m_thisPtr;
             u32 m_stackOffset;
             i32 m_instructionIdx;
             std::unordered_map<stack_id, u32> m_stackAddrs;

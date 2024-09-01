@@ -7,13 +7,12 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-set(
-    codegen_test_include_dirs
-    ${CMAKE_CURRENT_SOURCE_DIR}/../include
-    ${CMAKE_CURRENT_SOURCE_DIR}
+include_directories(
+    ${TSN_CODEGEN_INCLUDE_DIR}
+    ${TSN_BIND_INCLUDE_DIR}
+    ${TSN_UTILS_INCLUDE_DIR}
+    ${FFI_INCLUDE_DIR}
 )
-
-include_directories(${codegen_test_include_dirs})
 
 file(GLOB all_sources "./*.cpp")
 add_executable(codegen_test ${all_sources})
