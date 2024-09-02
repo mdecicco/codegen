@@ -293,120 +293,120 @@ namespace codegen {
             
             /**
              * @brief Vector assignment
-             * @note Behavior depends on backend implementation and the types of `dest` and `src`
              * 
              * @param dest Pointer to vector to assign. Must refer to a register, must be a pointer type
              * @param src Value to assign to `dest`. Must either have the same type as `dest`, or have the type
              * that `dest`'s type points to
+             * @param componentCount Vector component count
              */
-            InstructionRef vset(const Value& dest, const Value& src);
+            InstructionRef vset(const Value& dest, const Value& src, u8 componentCount);
             
             /**
              * @brief Vector addition
-             * @note Behavior depends on backend implementation and the types of `dest` and `val`
              * 
-             * @param dest Pointer to vector to add to. Must refer to a register, must be a pointer type
-             * @param src Value to add to `dest`. Must either have the same type as `dest`, or have the type that
+             * @param a Pointer to vector to add to. Must refer to a register, must be a pointer type
+             * @param b Value to add to `dest`. Must either have the same type as `dest`, or have the type that
              * `dest`'s type points to
+             * @param componentCount Vector component count
              */
-            InstructionRef vadd(const Value& dest, const Value& val);
+            InstructionRef vadd(const Value& a, const Value& b, u8 componentCount);
             
             /**
              * @brief Vector subtraction
-             * @note Behavior depends on backend implementation and the types of `dest` and `val`
              * 
-             * @param dest Pointer to vector to subtract from. Must refer to a register, must be a pointer type
-             * @param src Value to subtract from `dest`. Must either have the same type as `dest`, or have the
+             * @param a Pointer to vector to subtract from. Must refer to a register, must be a pointer type
+             * @param b Value to subtract from `dest`. Must either have the same type as `dest`, or have the
              * type that `dest`'s type points to
+             * @param componentCount Vector component count
              */
-            InstructionRef vsub(const Value& dest, const Value& val);
+            InstructionRef vsub(const Value& a, const Value& b, u8 componentCount);
             
             /**
              * @brief Vector multiplication
-             * @note Behavior depends on backend implementation and the types of `dest` and `val`
              * 
-             * @param dest Pointer to vector to multiply. Must refer to a register, must be a pointer type
-             * @param src Value to multiply `dest` by. Must either have the same type as `dest`, or have the
+             * @param a Pointer to vector to multiply. Must refer to a register, must be a pointer type
+             * @param b Value to multiply `dest` by. Must either have the same type as `dest`, or have the
              * type that `dest`'s type points to
+             * @param componentCount Vector component count
              */
-            InstructionRef vmul(const Value& dest, const Value& val);
+            InstructionRef vmul(const Value& a, const Value& b, u8 componentCount);
             
             /**
              * @brief Vector division
-             * @note Behavior depends on backend implementation and the types of `dest` and `val`
              * 
-             * @param dest Pointer to vector to divide. Must refer to a register, must be a pointer type
-             * @param src Value to divide `dest` by. Must either have the same type as `dest`, or have the
+             * @param a Pointer to vector to divide. Must refer to a register, must be a pointer type
+             * @param b Value to divide `dest` by. Must either have the same type as `dest`, or have the
              * type that `dest`'s type points to
+             * @param componentCount Vector component count
              */
-            InstructionRef vdiv(const Value& dest, const Value& val);
+            InstructionRef vdiv(const Value& a, const Value& b, u8 componentCount);
             
             /**
              * @brief Vector modulo
-             * @note Behavior depends on backend implementation and the types of `dest` and `val`
              * 
-             * @param dest Pointer to vector to modulo. Must refer to a register, must be a pointer type
-             * @param src Value to modulo `dest` by. Must either have the same type as `dest`, or have the
+             * @param a Pointer to vector to modulo. Must refer to a register, must be a pointer type
+             * @param b Value to modulo `dest` by. Must either have the same type as `dest`, or have the
              * type that `dest`'s type points to
+             * @param componentCount Vector component count
              */
-            InstructionRef vmod(const Value& dest, const Value& val);
+            InstructionRef vmod(const Value& a, const Value& b, u8 componentCount);
             
             /**
              * @brief Vector negation
-             * @note Behavior depends on backend implementation and the types of `dest` and `val`
              * 
-             * @param dest Pointer to vector to negate. Must refer to a register, must be a pointer type
+             * @param val Pointer to vector to negate. Must refer to a register, must be a pointer type
+             * @param componentCount Vector component count
              */
-            InstructionRef vneg(const Value& val);
+            InstructionRef vneg(const Value& val, u8 componentCount);
             
             /**
              * @brief Vector dot product
-             * @note Behavior depends on backend implementation and the types of `a` and `b`
              * 
              * @param result Result value. Must refer to a register, must have the type that the types of `a`
              * and `b` point to
              * @param a Left-hand vector, Must have pointer type, must have the same type as `b`
              * @param b Right-hand vector, Must have pointer type, must have the same type as `a`
+             * @param componentCount Vector component count
              */
-            InstructionRef vdot(const Value& result, const Value& a, const Value& b);
+            InstructionRef vdot(const Value& result, const Value& a, const Value& b, u8 componentCount);
             
             /**
              * @brief Vector magnitude
-             * @note Behavior depends on backend implementation and the type of `val`
              * 
              * @param result Result value. Must refer to a register, must have the type that the types of `a`
              * and `b` point to
              * @param val Vector to get the magnitude of, must have pointer type
+             * @param componentCount Vector component count
              */
-            InstructionRef vmag(const Value& result, const Value& val);
+            InstructionRef vmag(const Value& result, const Value& val, u8 componentCount);
             
             /**
              * @brief Vector squared magnitude
-             * @note Behavior depends on backend implementation and the type of `val`
              * 
              * @param result Result value. Must refer to a register, must have the type that the types of `a`
              * and `b` point to
              * @param val Vector to get the magnitude of, must have pointer type
+             * @param componentCount Vector component count
              */
-            InstructionRef vmagsq(const Value& result, const Value& val);
+            InstructionRef vmagsq(const Value& result, const Value& val, u8 componentCount);
             
             /**
              * @brief Vector normalize
-             * @note Behavior depends on backend implementation and the types of `val`
              * 
-             * @param dest Pointer to vector to normalize. Must be a pointer type
+             * @param val Pointer to vector to normalize. Must be a pointer type
+             * @param componentCount Vector component count
              */
-            InstructionRef vnorm(const Value& val);
+            InstructionRef vnorm(const Value& val, u8 componentCount);
             
             /**
              * @brief Vector dot product
-             * @note Behavior depends on backend implementation and the types of `a` and `b`
              * 
              * @param result Result value. Must have the same type as `a` and `b`
              * @param a Left-hand vector, Must have pointer type, must have the same type as `result`
              * @param b Right-hand vector, Must have pointer type, must have the same type as `result`
+             * @param componentCount Vector component count, must be 3
              */
-            InstructionRef vcross(const Value& result, const Value& a, const Value& b);
+            InstructionRef vcross(const Value& result, const Value& a, const Value& b, u8 componentCount);
             
             /**
              * @brief `result = a + b`, Signed integer

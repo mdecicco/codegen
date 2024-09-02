@@ -45,6 +45,20 @@ namespace codegen {
 
             OpCode op;
             Value operands[3];
+            union {
+                struct { u8 componentCount; } vset;
+                struct { u8 componentCount; } vadd;
+                struct { u8 componentCount; } vsub;
+                struct { u8 componentCount; } vmul;
+                struct { u8 componentCount; } vdiv;
+                struct { u8 componentCount; } vmod;
+                struct { u8 componentCount; } vneg;
+                struct { u8 componentCount; } vdot;
+                struct { u8 componentCount; } vmag;
+                struct { u8 componentCount; } vmagsq;
+                struct { u8 componentCount; } vnorm;
+                struct { u8 componentCount; } vcross;
+            } options;
 
             /**
              * @brief Returns pointer to Value that would be assigned by this instruction

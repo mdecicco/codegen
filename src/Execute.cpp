@@ -3,6 +3,7 @@
 #include <codegen/FunctionBuilder.h>
 #include <bind/Function.h>
 #include <bind/FunctionType.h>
+#include <bind/PointerType.h>
 #include <bind/DataType.h>
 #include <bind/Registry.h>
 #include <bind/ValuePointer.h>
@@ -42,6 +43,57 @@ namespace codegen {
 
         exe.execute();
     }
+
+    template <typename T>
+    inline void vcross(void* result, void* a, void* b) {
+        constexpr u32 X = 0;
+        constexpr u32 Y = 1;
+        constexpr u32 Z = 2;
+        T x = ((T*)a)[Y] * ((T*)b)[Z] - ((T*)a)[Z] * ((T*)b)[Y];
+        T y = ((T*)a)[Z] * ((T*)b)[X] - ((T*)a)[X] * ((T*)b)[Z];
+        T z = ((T*)a)[X] * ((T*)b)[Y] - ((T*)a)[Y] * ((T*)b)[X];
+        ((T*)result)[X] = x;
+        ((T*)result)[Y] = y;
+        ((T*)result)[Z] = z;
+    }
+
+    template <typename T>
+    inline void vnorm(void* v, u8 compCnt) {
+        T result = 0;
+        for (u8 c = 0;c < compCnt;c++) result += ((T*)v)[c] * ((T*)v)[c];
+
+        if constexpr (std::is_floating_point_v<T>) {
+            T f = T(1.0) / std::sqrt(result);
+            for (u8 c = 0;c < compCnt;c++) ((T*)v)[c] *= f;
+        } else {
+            f32 f = 1.0f / sqrtf(f32(result));
+            for (u8 c = 0;c < compCnt;c++) ((T*)v)[c] = T(f32(((T*)v)[c]) * f);
+        }
+    }
+
+    template <typename T> inline void vadd(void* a, u64   b, u8 compCnt) { for (u8 i = 0;i < compCnt;i++) ((T*)a)[i] += *((T*)&b); }
+    template <typename T> inline void vadd(void* a, void* b, u8 compCnt) { for (u8 i = 0;i < compCnt;i++) ((T*)a)[i] += ((T*)b)[i]; }
+    template <typename T> inline void vsub(void* a, u64   b, u8 compCnt) { for (u8 i = 0;i < compCnt;i++) ((T*)a)[i] -= *((T*)&b); }
+    template <typename T> inline void vsub(void* a, void* b, u8 compCnt) { for (u8 i = 0;i < compCnt;i++) ((T*)a)[i] -= ((T*)b)[i]; }
+    template <typename T> inline void vmul(void* a, u64   b, u8 compCnt) { for (u8 i = 0;i < compCnt;i++) ((T*)a)[i] *= *((T*)&b); }
+    template <typename T> inline void vmul(void* a, void* b, u8 compCnt) { for (u8 i = 0;i < compCnt;i++) ((T*)a)[i] *= ((T*)b)[i]; }
+    template <typename T> inline void vdiv(void* a, u64   b, u8 compCnt) { for (u8 i = 0;i < compCnt;i++) ((T*)a)[i] /= *((T*)&b); }
+    template <typename T> inline void vdiv(void* a, void* b, u8 compCnt) { for (u8 i = 0;i < compCnt;i++) ((T*)a)[i] /= ((T*)b)[i]; }
+    template <typename T> inline void vmod(void* a, u64   b, u8 compCnt) {
+        if constexpr (std::is_floating_point_v<T>) {
+            for (u8 i = 0;i < compCnt;i++) ((T*)a)[i] = std::fmod(((T*)a)[i], *((T*)&b));
+        } else {
+            for (u8 i = 0;i < compCnt;i++) ((T*)a)[i] %= *((T*)&b);
+        }
+    }
+    template <typename T> inline void vmod(void* a, void* b, u8 compCnt) {
+        if constexpr (std::is_floating_point_v<T>) {
+            for (u8 i = 0;i < compCnt;i++) ((T*)a)[i] = std::fmod(((T*)a)[i], ((T*)b)[i]);
+        } else {
+            for (u8 i = 0;i < compCnt;i++) ((T*)a)[i] %= ((T*)b)[i];
+        }
+    }
+
 
     TestExecuter::TestExecuter(CodeHolder* ch)
         : m_code(ch), m_fb(ch->owner), m_func(m_fb->getFunction()), m_stack(nullptr), m_registers(nullptr),
@@ -458,39 +510,642 @@ namespace codegen {
                 case OpCode::_xor: { reg0 = v1 ^ v2; break; }
                 case OpCode::assign: { reg0 = v1; break; }
                 case OpCode::vset: {
+                    void* dest = reinterpret_cast<void*>(v0);
+                    DataType* vtp = ((PointerType*)tp0)->getDestinationType();
+                    const type_meta& vi = vtp->getInfo();
+                    u8 compCnt = i.options.vset.componentCount;
+
+                    if (ti1.is_pointer) {
+                        void* src = reinterpret_cast<void*>(v1);
+                        switch (vi.size) {
+                            case 1: { for (u8 c = 0;c < compCnt;c++) ((u8* )dest)[c] = ((u8* )src)[c]; break; }
+                            case 2: { for (u8 c = 0;c < compCnt;c++) ((u16*)dest)[c] = ((u16*)src)[c]; break; }
+                            case 4: { for (u8 c = 0;c < compCnt;c++) ((u32*)dest)[c] = ((u32*)src)[c]; break; }
+                            case 8: { for (u8 c = 0;c < compCnt;c++) ((u64*)dest)[c] = ((u64*)src)[c]; break; }
+                        }
+                    } else {
+                        switch (vi.size) {
+                            case 1: { for (u8 c = 0;c < compCnt;c++) ((u8* )dest)[c] = *((u8 *)&v1); break; }
+                            case 2: { for (u8 c = 0;c < compCnt;c++) ((u16*)dest)[c] = *((u16*)&v1); break; }
+                            case 4: { for (u8 c = 0;c < compCnt;c++) ((u32*)dest)[c] = *((u32*)&v1); break; }
+                            case 8: { for (u8 c = 0;c < compCnt;c++) ((u64*)dest)[c] = *((u64*)&v1); break; }
+                        }
+                    }
+
                     break;
                 }
                 case OpCode::vadd: {
+                    void* dest = reinterpret_cast<void*>(v0);
+                    DataType* vtp = ((PointerType*)tp0)->getDestinationType();
+                    const type_meta& vi = vtp->getInfo();
+                    u8 compCnt = i.options.vadd.componentCount;
+
+                    if (ti1.is_pointer) {
+                        void* src = reinterpret_cast<void*>(v1);
+                        if (vi.is_integral) {
+                            if (vi.is_unsigned) {
+                                switch (vi.size) {
+                                    case 1: { vadd<u8 >(dest, src, compCnt); break; }
+                                    case 2: { vadd<u16>(dest, src, compCnt); break; }
+                                    case 4: { vadd<u32>(dest, src, compCnt); break; }
+                                    case 8: { vadd<u64>(dest, src, compCnt); break; }
+                                }
+                            } else {
+                                switch (vi.size) {
+                                    case 1: { vadd<i8 >(dest, src, compCnt); break; }
+                                    case 2: { vadd<i16>(dest, src, compCnt); break; }
+                                    case 4: { vadd<i32>(dest, src, compCnt); break; }
+                                    case 8: { vadd<i64>(dest, src, compCnt); break; }
+                                }
+                            }
+                        } else {
+                            switch (vi.size) {
+                                case 4: { vadd<f32>(dest, src, compCnt); break; }
+                                case 8: { vadd<f64>(dest, src, compCnt); break; }
+                            }
+                        }
+                    } else {
+                        if (vi.is_integral) {
+                            if (vi.is_unsigned) {
+                                switch (vi.size) {
+                                    case 1: { vadd<u8 >(dest, v1, compCnt); break; }
+                                    case 2: { vadd<u16>(dest, v1, compCnt); break; }
+                                    case 4: { vadd<u32>(dest, v1, compCnt); break; }
+                                    case 8: { vadd<u64>(dest, v1, compCnt); break; }
+                                }
+                            } else {
+                                switch (vi.size) {
+                                    case 1: { vadd<i8 >(dest, v1, compCnt); break; }
+                                    case 2: { vadd<i16>(dest, v1, compCnt); break; }
+                                    case 4: { vadd<i32>(dest, v1, compCnt); break; }
+                                    case 8: { vadd<i64>(dest, v1, compCnt); break; }
+                                }
+                            }
+                        } else {
+                            switch (vi.size) {
+                                case 4: { vadd<f32>(dest, v1, compCnt); break; }
+                                case 8: { vadd<f64>(dest, v1, compCnt); break; }
+                            }
+                        }
+                    }
+
                     break;
                 }
                 case OpCode::vsub: {
+                    void* dest = reinterpret_cast<void*>(v0);
+                    DataType* vtp = ((PointerType*)tp0)->getDestinationType();
+                    const type_meta& vi = vtp->getInfo();
+                    u8 compCnt = i.options.vsub.componentCount;
+
+                    if (ti1.is_pointer) {
+                        void* src = reinterpret_cast<void*>(v1);
+                        if (vi.is_integral) {
+                            if (vi.is_unsigned) {
+                                switch (vi.size) {
+                                    case 1: { vsub<u8 >(dest, src, compCnt); break; }
+                                    case 2: { vsub<u16>(dest, src, compCnt); break; }
+                                    case 4: { vsub<u32>(dest, src, compCnt); break; }
+                                    case 8: { vsub<u64>(dest, src, compCnt); break; }
+                                }
+                            } else {
+                                switch (vi.size) {
+                                    case 1: { vsub<i8 >(dest, src, compCnt); break; }
+                                    case 2: { vsub<i16>(dest, src, compCnt); break; }
+                                    case 4: { vsub<i32>(dest, src, compCnt); break; }
+                                    case 8: { vsub<i64>(dest, src, compCnt); break; }
+                                }
+                            }
+                        } else {
+                            switch (vi.size) {
+                                case 4: { vsub<f32>(dest, src, compCnt); break; }
+                                case 8: { vsub<f64>(dest, src, compCnt); break; }
+                            }
+                        }
+                    } else {
+                        if (vi.is_integral) {
+                            if (vi.is_unsigned) {
+                                switch (vi.size) {
+                                    case 1: { vsub<u8 >(dest, v1, compCnt); break; }
+                                    case 2: { vsub<u16>(dest, v1, compCnt); break; }
+                                    case 4: { vsub<u32>(dest, v1, compCnt); break; }
+                                    case 8: { vsub<u64>(dest, v1, compCnt); break; }
+                                }
+                            } else {
+                                switch (vi.size) {
+                                    case 1: { vsub<i8 >(dest, v1, compCnt); break; }
+                                    case 2: { vsub<i16>(dest, v1, compCnt); break; }
+                                    case 4: { vsub<i32>(dest, v1, compCnt); break; }
+                                    case 8: { vsub<i64>(dest, v1, compCnt); break; }
+                                }
+                            }
+                        } else {
+                            switch (vi.size) {
+                                case 4: { vsub<f32>(dest, v1, compCnt); break; }
+                                case 8: { vsub<f64>(dest, v1, compCnt); break; }
+                            }
+                        }
+                    }
+
                     break;
                 }
                 case OpCode::vmul: {
+                    void* dest = reinterpret_cast<void*>(v0);
+                    DataType* vtp = ((PointerType*)tp0)->getDestinationType();
+                    const type_meta& vi = vtp->getInfo();
+                    u8 compCnt = i.options.vmul.componentCount;
+
+                    if (ti1.is_pointer) {
+                        void* src = reinterpret_cast<void*>(v1);
+                        if (vi.is_integral) {
+                            if (vi.is_unsigned) {
+                                switch (vi.size) {
+                                    case 1: { vmul<u8 >(dest, src, compCnt); break; }
+                                    case 2: { vmul<u16>(dest, src, compCnt); break; }
+                                    case 4: { vmul<u32>(dest, src, compCnt); break; }
+                                    case 8: { vmul<u64>(dest, src, compCnt); break; }
+                                }
+                            } else {
+                                switch (vi.size) {
+                                    case 1: { vmul<i8 >(dest, src, compCnt); break; }
+                                    case 2: { vmul<i16>(dest, src, compCnt); break; }
+                                    case 4: { vmul<i32>(dest, src, compCnt); break; }
+                                    case 8: { vmul<i64>(dest, src, compCnt); break; }
+                                }
+                            }
+                        } else {
+                            switch (vi.size) {
+                                case 4: { vmul<f32>(dest, src, compCnt); break; }
+                                case 8: { vmul<f64>(dest, src, compCnt); break; }
+                            }
+                        }
+                    } else {
+                        if (vi.is_integral) {
+                            if (vi.is_unsigned) {
+                                switch (vi.size) {
+                                    case 1: { vmul<u8 >(dest, v1, compCnt); break; }
+                                    case 2: { vmul<u16>(dest, v1, compCnt); break; }
+                                    case 4: { vmul<u32>(dest, v1, compCnt); break; }
+                                    case 8: { vmul<u64>(dest, v1, compCnt); break; }
+                                }
+                            } else {
+                                switch (vi.size) {
+                                    case 1: { vmul<i8 >(dest, v1, compCnt); break; }
+                                    case 2: { vmul<i16>(dest, v1, compCnt); break; }
+                                    case 4: { vmul<i32>(dest, v1, compCnt); break; }
+                                    case 8: { vmul<i64>(dest, v1, compCnt); break; }
+                                }
+                            }
+                        } else {
+                            switch (vi.size) {
+                                case 4: { vmul<f32>(dest, v1, compCnt); break; }
+                                case 8: { vmul<f64>(dest, v1, compCnt); break; }
+                            }
+                        }
+                    }
+
                     break;
                 }
                 case OpCode::vdiv: {
+                    void* dest = reinterpret_cast<void*>(v0);
+                    DataType* vtp = ((PointerType*)tp0)->getDestinationType();
+                    const type_meta& vi = vtp->getInfo();
+                    u8 compCnt = i.options.vdiv.componentCount;
+
+                    if (ti1.is_pointer) {
+                        void* src = reinterpret_cast<void*>(v1);
+                        if (vi.is_integral) {
+                            if (vi.is_unsigned) {
+                                switch (vi.size) {
+                                    case 1: { vdiv<u8 >(dest, src, compCnt); break; }
+                                    case 2: { vdiv<u16>(dest, src, compCnt); break; }
+                                    case 4: { vdiv<u32>(dest, src, compCnt); break; }
+                                    case 8: { vdiv<u64>(dest, src, compCnt); break; }
+                                }
+                            } else {
+                                switch (vi.size) {
+                                    case 1: { vdiv<i8 >(dest, src, compCnt); break; }
+                                    case 2: { vdiv<i16>(dest, src, compCnt); break; }
+                                    case 4: { vdiv<i32>(dest, src, compCnt); break; }
+                                    case 8: { vdiv<i64>(dest, src, compCnt); break; }
+                                }
+                            }
+                        } else {
+                            switch (vi.size) {
+                                case 4: { vdiv<f32>(dest, src, compCnt); break; }
+                                case 8: { vdiv<f64>(dest, src, compCnt); break; }
+                            }
+                        }
+                    } else {
+                        if (vi.is_integral) {
+                            if (vi.is_unsigned) {
+                                switch (vi.size) {
+                                    case 1: { vdiv<u8 >(dest, v1, compCnt); break; }
+                                    case 2: { vdiv<u16>(dest, v1, compCnt); break; }
+                                    case 4: { vdiv<u32>(dest, v1, compCnt); break; }
+                                    case 8: { vdiv<u64>(dest, v1, compCnt); break; }
+                                }
+                            } else {
+                                switch (vi.size) {
+                                    case 1: { vdiv<i8 >(dest, v1, compCnt); break; }
+                                    case 2: { vdiv<i16>(dest, v1, compCnt); break; }
+                                    case 4: { vdiv<i32>(dest, v1, compCnt); break; }
+                                    case 8: { vdiv<i64>(dest, v1, compCnt); break; }
+                                }
+                            }
+                        } else {
+                            switch (vi.size) {
+                                case 4: { vdiv<f32>(dest, v1, compCnt); break; }
+                                case 8: { vdiv<f64>(dest, v1, compCnt); break; }
+                            }
+                        }
+                    }
+
                     break;
                 }
                 case OpCode::vmod: {
+                    void* dest = reinterpret_cast<void*>(v0);
+                    DataType* vtp = ((PointerType*)tp0)->getDestinationType();
+                    const type_meta& vi = vtp->getInfo();
+                    u8 compCnt = i.options.vmod.componentCount;
+
+                    if (ti1.is_pointer) {
+                        void* src = reinterpret_cast<void*>(v1);
+                        if (vi.is_integral) {
+                            if (vi.is_unsigned) {
+                                switch (vi.size) {
+                                    case 1: { vmod<u8>(dest, src, compCnt); break; }
+                                    case 2: { vmod<u16>(dest, src, compCnt); break; }
+                                    case 4: { vmod<u32>(dest, src, compCnt); break; }
+                                    case 8: { vmod<u64>(dest, src, compCnt); break; }
+                                }
+                            } else {
+                                switch (vi.size) {
+                                    case 1: { vmod<i8>(dest, src, compCnt); break; }
+                                    case 2: { vmod<i16>(dest, src, compCnt); break; }
+                                    case 4: { vmod<i32>(dest, src, compCnt); break; }
+                                    case 8: { vmod<i64>(dest, src, compCnt); break; }
+                                }
+                            }
+                        } else {
+                            switch (vi.size) {
+                                case 4: { vmod<f32>(dest, src, compCnt); break; }
+                                case 8: { vmod<f64>(dest, src, compCnt); break; }
+                            }
+                        }
+                    } else {
+                        if (vi.is_integral) {
+                            if (vi.is_unsigned) {
+                                switch (vi.size) {
+                                    case 1: { vmod<u8>(dest, v1, compCnt); break; }
+                                    case 2: { vmod<u16>(dest, v1, compCnt); break; }
+                                    case 4: { vmod<u32>(dest, v1, compCnt); break; }
+                                    case 8: { vmod<u64>(dest, v1, compCnt); break; }
+                                }
+                            } else {
+                                switch (vi.size) {
+                                    case 1: { vmod<i8>(dest, v1, compCnt); break; }
+                                    case 2: { vmod<i16>(dest, v1, compCnt); break; }
+                                    case 4: { vmod<i32>(dest, v1, compCnt); break; }
+                                    case 8: { vmod<i64>(dest, v1, compCnt); break; }
+                                }
+                            }
+                        } else {
+                            switch (vi.size) {
+                                case 4: { vmod<f32>(dest, v1, compCnt); break; }
+                                case 8: { vmod<f64>(dest, v1, compCnt); break; }
+                            }
+                        }
+                    }
+
                     break;
                 }
                 case OpCode::vneg: {
+                    void* dest = reinterpret_cast<void*>(v0);
+                    DataType* vtp = ((PointerType*)tp0)->getDestinationType();
+                    const type_meta& vi = vtp->getInfo();
+                    u8 compCnt = i.options.vneg.componentCount;
+
+                    if (vi.is_integral) {
+                        switch (vi.size) {
+                            case 1: { for (u8 c = 0;c < compCnt;c++) ((i8 *)dest)[c] = -((i8 *)dest)[c]; break; }
+                            case 2: { for (u8 c = 0;c < compCnt;c++) ((i16*)dest)[c] = -((i16*)dest)[c]; break; }
+                            case 4: { for (u8 c = 0;c < compCnt;c++) ((i32*)dest)[c] = -((i32*)dest)[c]; break; }
+                            case 8: { for (u8 c = 0;c < compCnt;c++) ((i64*)dest)[c] = -((i64*)dest)[c]; break; }
+                        }
+                    } else {
+                        switch (vi.size) {
+                            case 4: { for (u8 c = 0;c < compCnt;c++) ((f32*)dest)[c] = -((f32*)dest)[c]; break; }
+                            case 8: { for (u8 c = 0;c < compCnt;c++) ((f64*)dest)[c] = -((f64*)dest)[c]; break; }
+                        }
+                    }
                     break;
                 }
                 case OpCode::vdot: {
+                    void* a = reinterpret_cast<void*>(v1);
+                    void* b = reinterpret_cast<void*>(v2);
+                    DataType* vtp = ((PointerType*)tp0)->getDestinationType();
+                    const type_meta& vi = vtp->getInfo();
+                    u8 compCnt = i.options.vdot.componentCount;
+
+                    if (vi.is_integral) {
+                        if (vi.is_unsigned) {
+                            switch (vi.size) {
+                                case 1: {
+                                    u8 result = 0;
+                                    for (u8 c = 0;c < compCnt;c++) result += ((u8*)a)[c] * ((u8*)b)[c];
+                                    reg0 = result;
+                                    break;
+                                }
+                                case 2: {
+                                    u16 result = 0;
+                                    for (u8 c = 0;c < compCnt;c++) result += ((u16*)a)[c] * ((u16*)b)[c];
+                                    reg0 = result;
+                                    break;
+                                }
+                                case 4: {
+                                    u32 result = 0;
+                                    for (u8 c = 0;c < compCnt;c++) result += ((u32*)a)[c] * ((u32*)b)[c];
+                                    reg0 = result;
+                                    break;
+                                }
+                                case 8: {
+                                    u64 result = 0;
+                                    for (u8 c = 0;c < compCnt;c++) result += ((u64*)a)[c] * ((u64*)b)[c];
+                                    reg0 = result;
+                                    break;
+                                }
+                            }
+                        } else {
+                            switch (vi.size) {
+                                case 1: {
+                                    i8 result = 0;
+                                    for (u8 c = 0;c < compCnt;c++) result += ((i8*)a)[c] * ((i8*)b)[c];
+                                    *((i8*)&reg0) = result;
+                                    break;
+                                }
+                                case 2: {
+                                    i16 result = 0;
+                                    for (u8 c = 0;c < compCnt;c++) result += ((i16*)a)[c] * ((i16*)b)[c];
+                                    *((i16*)&reg0) = result;
+                                    break;
+                                }
+                                case 4: {
+                                    i32 result = 0;
+                                    for (u8 c = 0;c < compCnt;c++) result += ((i32*)a)[c] * ((i32*)b)[c];
+                                    *((i32*)&reg0) = result;
+                                    break;
+                                }
+                                case 8: {
+                                    i64 result = 0;
+                                    for (u8 c = 0;c < compCnt;c++) result += ((i64*)a)[c] * ((i64*)b)[c];
+                                    *((i64*)&reg0) = result;
+                                    break;
+                                }
+                            }
+                        }
+                    } else {
+                        switch (vi.size) {
+                            case 4: {
+                                f32 result = 0.0f;
+                                for (u8 c = 0;c < compCnt;c++) result += ((f32*)a)[c] * ((f32*)b)[c];
+                                *((f32*)&reg0) = result;
+                                break;
+                            }
+                            case 8: {
+                                f64 result = 0.0;
+                                for (u8 c = 0;c < compCnt;c++) result += ((f64*)a)[c] * ((f64*)b)[c];
+                                *((f64*)&reg0) = result;
+                                break;
+                            }
+                        }
+                    }
+
                     break;
                 }
                 case OpCode::vmag: {
+                    void* a = reinterpret_cast<void*>(v1);
+                    DataType* vtp = ((PointerType*)tp0)->getDestinationType();
+                    const type_meta& vi = vtp->getInfo();
+                    u8 compCnt = i.options.vmag.componentCount;
+
+                    if (vi.is_integral) {
+                        if (vi.is_unsigned) {
+                            switch (vi.size) {
+                                case 1: {
+                                    u8 result = 0;
+                                    for (u8 c = 0;c < compCnt;c++) result += ((u8*)a)[c] * ((u8*)a)[c];
+                                    reg0 = (u8)sqrtf((f32)result);
+                                    break;
+                                }
+                                case 2: {
+                                    u16 result = 0;
+                                    for (u8 c = 0;c < compCnt;c++) result += ((u16*)a)[c] * ((u16*)a)[c];
+                                    reg0 = (u16)sqrtf((f32)result);
+                                    break;
+                                }
+                                case 4: {
+                                    u32 result = 0;
+                                    for (u8 c = 0;c < compCnt;c++) result += ((u32*)a)[c] * ((u32*)a)[c];
+                                    reg0 = (u32)sqrtf((f32)result);
+                                    break;
+                                }
+                                case 8: {
+                                    u64 result = 0;
+                                    for (u8 c = 0;c < compCnt;c++) result += ((u64*)a)[c] * ((u64*)a)[c];
+                                    reg0 = (u64)sqrtf((f32)result);
+                                    break;
+                                }
+                            }
+                        } else {
+                            switch (vi.size) {
+                                case 1: {
+                                    i8 result = 0;
+                                    for (u8 c = 0;c < compCnt;c++) result += ((i8*)a)[c] * ((i8*)a)[c];
+                                    *((i8*)&reg0) = (i8)sqrtf((i8)result);
+                                    break;
+                                }
+                                case 2: {
+                                    i16 result = 0;
+                                    for (u8 c = 0;c < compCnt;c++) result += ((i16*)a)[c] * ((i16*)a)[c];
+                                    *((i16*)&reg0) = (i16)sqrtf((i16)result);
+                                    break;
+                                }
+                                case 4: {
+                                    i32 result = 0;
+                                    for (u8 c = 0;c < compCnt;c++) result += ((i32*)a)[c] * ((i32*)a)[c];
+                                    *((i32*)&reg0) = (i32)sqrtf(f32((i32)result));
+                                    break;
+                                }
+                                case 8: {
+                                    i64 result = 0;
+                                    for (u8 c = 0;c < compCnt;c++) result += ((i64*)a)[c] * ((i64*)a)[c];
+                                    *((i64*)&reg0) = (i64)sqrtf(f32((i64)result));
+                                    break;
+                                }
+                            }
+                        }
+                    } else {
+                        switch (vi.size) {
+                            case 4: {
+                                f32 result = 0.0f;
+                                for (u8 c = 0;c < compCnt;c++) result += ((f32*)a)[c] * ((f32*)a)[c];
+                                *((f32*)&reg0) = sqrtf(result);
+                                break;
+                            }
+                            case 8: {
+                                f64 result = 0.0;
+                                for (u8 c = 0;c < compCnt;c++) result += ((f64*)a)[c] * ((f64*)a)[c];
+                                *((f64*)&reg0) = sqrt(result);
+                                break;
+                            }
+                        }
+                    }
+
                     break;
                 }
                 case OpCode::vmagsq: {
+                    void* a = reinterpret_cast<void*>(v1);
+                    DataType* vtp = ((PointerType*)tp0)->getDestinationType();
+                    const type_meta& vi = vtp->getInfo();
+                    u8 compCnt = i.options.vmagsq.componentCount;
+
+                    if (vi.is_integral) {
+                        if (vi.is_unsigned) {
+                            switch (vi.size) {
+                                case 1: {
+                                    u8 result = 0;
+                                    for (u8 c = 0;c < compCnt;c++) result += ((u8*)a)[c] * ((u8*)a)[c];
+                                    reg0 = result;
+                                    break;
+                                }
+                                case 2: {
+                                    u16 result = 0;
+                                    for (u8 c = 0;c < compCnt;c++) result += ((u16*)a)[c] * ((u16*)a)[c];
+                                    reg0 = result;
+                                    break;
+                                }
+                                case 4: {
+                                    u32 result = 0;
+                                    for (u8 c = 0;c < compCnt;c++) result += ((u32*)a)[c] * ((u32*)a)[c];
+                                    reg0 = result;
+                                    break;
+                                }
+                                case 8: {
+                                    u64 result = 0;
+                                    for (u8 c = 0;c < compCnt;c++) result += ((u64*)a)[c] * ((u64*)a)[c];
+                                    reg0 = result;
+                                    break;
+                                }
+                            }
+                        } else {
+                            switch (vi.size) {
+                                case 1: {
+                                    i8 result = 0;
+                                    for (u8 c = 0;c < compCnt;c++) result += ((i8*)a)[c] * ((i8*)a)[c];
+                                    *((i8*)&reg0) = result;
+                                    break;
+                                }
+                                case 2: {
+                                    i16 result = 0;
+                                    for (u8 c = 0;c < compCnt;c++) result += ((i16*)a)[c] * ((i16*)a)[c];
+                                    *((i16*)&reg0) = result;
+                                    break;
+                                }
+                                case 4: {
+                                    i32 result = 0;
+                                    for (u8 c = 0;c < compCnt;c++) result += ((i32*)a)[c] * ((i32*)a)[c];
+                                    *((i32*)&reg0) = result;
+                                    break;
+                                }
+                                case 8: {
+                                    i64 result = 0;
+                                    for (u8 c = 0;c < compCnt;c++) result += ((i64*)a)[c] * ((i64*)a)[c];
+                                    *((i64*)&reg0) = result;
+                                    break;
+                                }
+                            }
+                        }
+                    } else {
+                        switch (vi.size) {
+                            case 4: {
+                                f32 result = 0.0f;
+                                for (u8 c = 0;c < compCnt;c++) result += ((f32*)a)[c] * ((f32*)a)[c];
+                                *((f32*)&reg0) = result;
+                                break;
+                            }
+                            case 8: {
+                                f64 result = 0.0;
+                                for (u8 c = 0;c < compCnt;c++) result += ((f64*)a)[c] * ((f64*)a)[c];
+                                *((f64*)&reg0) = result;
+                                break;
+                            }
+                        }
+                    }
+
                     break;
                 }
                 case OpCode::vnorm: {
+                    void* a = reinterpret_cast<void*>(v0);
+                    DataType* vtp = ((PointerType*)tp0)->getDestinationType();
+                    const type_meta& vi = vtp->getInfo();
+                    u8 compCnt = i.options.vnorm.componentCount;
+
+                    if (vi.is_integral) {
+                        if (vi.is_unsigned) {
+                            switch (vi.size) {
+                                case 1: { vnorm<u8>(a, compCnt); break; }
+                                case 2: { vnorm<u16>(a, compCnt); break; }
+                                case 4: { vnorm<u32>(a, compCnt); break; }
+                                case 8: { vnorm<u64>(a, compCnt); break; }
+                            }
+                        } else {
+                            switch (vi.size) {
+                                case 1: { vnorm<i8>(a, compCnt); break; }
+                                case 2: { vnorm<i16>(a, compCnt); break; }
+                                case 4: { vnorm<i32>(a, compCnt); break; }
+                                case 8: { vnorm<i64>(a, compCnt); break; }
+                            }
+                        }
+                    } else {
+                        switch (vi.size) {
+                            case 4: { vnorm<f32>(a, compCnt); break; }
+                            case 8: { vnorm<f64>(a, compCnt); break; }
+                        }
+                    }
+
                     break;
                 }
                 case OpCode::vcross: {
+                    void* r = reinterpret_cast<void*>(v0);
+                    void* a = reinterpret_cast<void*>(v1);
+                    void* b = reinterpret_cast<void*>(v2);
+                    DataType* vtp = ((PointerType*)tp0)->getDestinationType();
+                    const type_meta& vi = vtp->getInfo();
+                    u8 compCnt = i.options.vcross.componentCount;
+
+                    if (vi.is_integral) {
+                        if (vi.is_unsigned) {
+                            switch (vi.size) {
+                                case 1: { vcross<u8>(r, a, b); break; }
+                                case 2: { vcross<u16>(r, a, b); break; }
+                                case 4: { vcross<u32>(r, a, b); break; }
+                                case 8: { vcross<u64>(r, a, b); break; }
+                            }
+                        } else {
+                            switch (vi.size) {
+                                case 1: { vcross<i8>(r, a, b); break; }
+                                case 2: { vcross<i16>(r, a, b); break; }
+                                case 4: { vcross<i32>(r, a, b); break; }
+                                case 8: { vcross<i64>(r, a, b); break; }
+                            }
+                        }
+                    } else {
+                        switch (vi.size) {
+                            case 4: { vcross<f32>(r, a, b); break; }
+                            case 8: { vcross<f64>(r, a, b); break; }
+                        }
+                    }
+
                     break;
                 }
                 case OpCode::iadd: { *((i64*)&reg0) = *((i64*)&v1) + *((i64*)&v2); break; }

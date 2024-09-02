@@ -28,6 +28,32 @@ namespace codegen {
         return nullptr;
     }
 
+    bool isScalarType(const Value& v) {
+        const type_meta& ti = v.getType()->getInfo();
+        return ti.is_integral == 1 || ti.is_floating_point == 1;
+    }
+    
+    bool isScalarType(DataType* tp) {
+        const type_meta& ti = tp->getInfo();
+        return ti.is_integral == 1 || ti.is_floating_point == 1;
+    }
+
+    bool isValidVectorType(const Value& v) {
+        DataType* tp = v.getType();
+        if (!tp->getInfo().is_pointer) return false;
+
+        DataType* dtp = ((PointerType*)tp)->getDestinationType();
+        return isScalarType(dtp);
+    }
+
+    DataType* getPointedType(const Value& v) {
+        DataType* tp = v.getType();
+        if (!tp->getInfo().is_pointer) return nullptr;
+
+        return ((PointerType*)tp)->getDestinationType();
+    }
+
+
 
     label_id FunctionBuilder::label(bool doAddToCode, const String& name) {
         label_id id = m_nextLabel++;
@@ -641,21 +667,30 @@ namespace codegen {
         return add(i);
     }
 
-    InstructionRef FunctionBuilder::vset(const Value& dest, const Value& src) {
+    InstructionRef FunctionBuilder::vset(const Value& dest, const Value& src, u8 componentCount) {
         if (m_validationEnabled) {
-            if (!dest.m_type->getInfo().is_pointer) {
-                throw Exception("FunctionBuilder::vset - destination value should have a pointer type");
+            if (!isValidVectorType(dest)) {
+                throw Exception("FunctionBuilder::vset - destination value should have a valid vector type");
             }
             
-            if (src.m_type->getInfo().is_pointer && !dest.m_type->isEqualTo(src.m_type)) {
+            if (isValidVectorType(src)) {
+                if (!src.m_type->isEqualTo(dest.m_type)) {
+                    throw Exception(
+                        "FunctionBuilder::vset - if source value has a vector type then "
+                        "it should have the same vector type as the destination"
+                    );
+                }
+            } else if (isScalarType(src)) {
+                if (!src.m_type->isEqualTo(getPointedType(dest))) {
+                    throw Exception(
+                        "FunctionBuilder::vset - if source value has a scalar type then "
+                        "it should have the same type pointed to by the destination type"
+                    );
+                }
+            } else {
                 throw Exception(
-                    "FunctionBuilder::vset - type of source value should either be the type "
-                    "pointed to by destination type or the same pointer type as the destination"
-                );
-            } else if (!src.m_type->getInfo().is_pointer && !((PointerType*)dest.m_type)->getDestinationType()->isEqualTo(src.m_type)) {
-                throw Exception(
-                    "FunctionBuilder::vset - type of source value should either be the type "
-                    "pointed to by destination type or the same pointer type as the destination"
+                    "FunctionBuilder::vset - source value should have either the same valid "
+                    "vector type as the destination, or the same type pointed to by the destination"
                 );
             }
         }
@@ -663,155 +698,217 @@ namespace codegen {
         Instruction i(OpCode::vset);
         i.operands[0].reset(dest);
         i.operands[1].reset(src);
+        i.options.vset.componentCount = componentCount;
         return add(i);
     }
 
-    InstructionRef FunctionBuilder::vadd(const Value& dest, const Value& val) {
+    InstructionRef FunctionBuilder::vadd(const Value& a, const Value& b, u8 componentCount) {
         if (m_validationEnabled) {
-            if (!dest.m_type->getInfo().is_pointer) {
-                throw Exception("FunctionBuilder::vadd - destination value should have a pointer type");
+            if (!isValidVectorType(a)) {
+                throw Exception("FunctionBuilder::vadd - left-hand value should have a valid vector type");
             }
             
-            if (val.m_type->getInfo().is_pointer && !dest.m_type->isEqualTo(val.m_type)) {
+            if (isValidVectorType(b)) {
+                if (!b.m_type->isEqualTo(a.m_type)) {
+                    throw Exception(
+                        "FunctionBuilder::vadd - if right-hand value has a valid vector type "
+                        "then it should have the same vector type as the right-hand value"
+                    );
+                }
+            } else if (isScalarType(b)) {
+                if (!b.m_type->isEqualTo(getPointedType(a))) {
+                    throw Exception(
+                        "FunctionBuilder::vadd - if right-hand value has a scalar type then "
+                        "it should have the same type pointed to by the left-hand type"
+                    );
+                }
+            } else {
                 throw Exception(
-                    "FunctionBuilder::vadd - type of right-hand value should either be the type "
-                    "pointed to by destination type or the same pointer type as the destination"
-                );
-            } else if (!val.m_type->getInfo().is_pointer && !((PointerType*)dest.m_type)->getDestinationType()->isEqualTo(val.m_type)) {
-                throw Exception(
-                    "FunctionBuilder::vadd - type of right-hand value should either be the type "
-                    "pointed to by destination type or the same pointer type as the destination"
+                    "FunctionBuilder::vadd - right-hand value should have either the same valid "
+                    "vector type as the left-hand value or the same type pointed to by the "
+                    "left-hand value"
                 );
             }
         }
 
         Instruction i(OpCode::vadd);
-        i.operands[0].reset(dest);
-        i.operands[1].reset(val);
+        i.operands[0].reset(a);
+        i.operands[1].reset(b);
+        i.options.vadd.componentCount = componentCount;
         return add(i);
     }
 
-    InstructionRef FunctionBuilder::vsub(const Value& dest, const Value& val) {
+    InstructionRef FunctionBuilder::vsub(const Value& a, const Value& b, u8 componentCount) {
         if (m_validationEnabled) {
-            if (!dest.m_type->getInfo().is_pointer) {
-                throw Exception("FunctionBuilder::vsub - destination value should have a pointer type");
+            if (!isValidVectorType(a)) {
+                throw Exception("FunctionBuilder::vsub - left-hand value should have a valid vector type");
             }
             
-            if (val.m_type->getInfo().is_pointer && !dest.m_type->isEqualTo(val.m_type)) {
+            if (isValidVectorType(b)) {
+                if (!b.m_type->isEqualTo(a.m_type)) {
+                    throw Exception(
+                        "FunctionBuilder::vsub - if right-hand value has a valid vector type "
+                        "then it should have the same vector type as the right-hand value"
+                    );
+                }
+            } else if (isScalarType(b)) {
+                if (!b.m_type->isEqualTo(getPointedType(a))) {
+                    throw Exception(
+                        "FunctionBuilder::vadd - if right-hand value has a scalar type then "
+                        "it should have the same type pointed to by the left-hand type"
+                    );
+                }
+            } else {
                 throw Exception(
-                    "FunctionBuilder::vsub - type of right-hand value should either be the type "
-                    "pointed to by destination type or the same pointer type as the destination"
-                );
-            } else if (!val.m_type->getInfo().is_pointer && !((PointerType*)dest.m_type)->getDestinationType()->isEqualTo(val.m_type)) {
-                throw Exception(
-                    "FunctionBuilder::vsub - type of right-hand value should either be the type "
-                    "pointed to by destination type or the same pointer type as the destination"
+                    "FunctionBuilder::vsub - right-hand value should have either the same valid "
+                    "vector type as the left-hand value or the same type pointed to by the "
+                    "left-hand value"
                 );
             }
         }
 
         Instruction i(OpCode::vsub);
-        i.operands[0].reset(dest);
-        i.operands[1].reset(val);
+        i.operands[0].reset(a);
+        i.operands[1].reset(b);
+        i.options.vsub.componentCount = componentCount;
         return add(i);
     }
 
-    InstructionRef FunctionBuilder::vmul(const Value& dest, const Value& val) {
+    InstructionRef FunctionBuilder::vmul(const Value& a, const Value& b, u8 componentCount) {
         if (m_validationEnabled) {
-            if (!dest.m_type->getInfo().is_pointer) {
-                throw Exception("FunctionBuilder::vmul - destination value should have a pointer type");
+            if (!isValidVectorType(a)) {
+                throw Exception("FunctionBuilder::vmul - left-hand value should have a valid vector type");
             }
             
-            if (val.m_type->getInfo().is_pointer && !dest.m_type->isEqualTo(val.m_type)) {
+            if (isValidVectorType(b)) {
+                if (!b.m_type->isEqualTo(a.m_type)) {
+                    throw Exception(
+                        "FunctionBuilder::vmul - if right-hand value has a valid vector type "
+                        "then it should have the same vector type as the right-hand value"
+                    );
+                }
+            } else if (isScalarType(b)) {
+                if (!b.m_type->isEqualTo(getPointedType(a))) {
+                    throw Exception(
+                        "FunctionBuilder::vmul - if right-hand value has a scalar type then "
+                        "it should have the same type pointed to by the left-hand type"
+                    );
+                }
+            } else {
                 throw Exception(
-                    "FunctionBuilder::vmul - type of right-hand value should either be the type "
-                    "pointed to by destination type or the same pointer type as the destination"
-                );
-            } else if (!val.m_type->getInfo().is_pointer && !((PointerType*)dest.m_type)->getDestinationType()->isEqualTo(val.m_type)) {
-                throw Exception(
-                    "FunctionBuilder::vmul - type of right-hand value should either be the type "
-                    "pointed to by destination type or the same pointer type as the destination"
+                    "FunctionBuilder::vmul - right-hand value should have either the same valid "
+                    "vector type as the left-hand value or the same type pointed to by the "
+                    "left-hand value"
                 );
             }
         }
 
         Instruction i(OpCode::vmul);
-        i.operands[0].reset(dest);
-        i.operands[1].reset(val);
+        i.operands[0].reset(a);
+        i.operands[1].reset(b);
+        i.options.vmul.componentCount = componentCount;
         return add(i);
     }
 
-    InstructionRef FunctionBuilder::vdiv(const Value& dest, const Value& val) {
+    InstructionRef FunctionBuilder::vdiv(const Value& a, const Value& b, u8 componentCount) {
         if (m_validationEnabled) {
-            if (!dest.m_type->getInfo().is_pointer) {
-                throw Exception("FunctionBuilder::vdiv - destination value should have a pointer type");
+            if (!isValidVectorType(a)) {
+                throw Exception("FunctionBuilder::vdiv - left-hand value should have a valid vector type");
             }
             
-            if (val.m_type->getInfo().is_pointer && !dest.m_type->isEqualTo(val.m_type)) {
+            if (isValidVectorType(b)) {
+                if (!b.m_type->isEqualTo(a.m_type)) {
+                    throw Exception(
+                        "FunctionBuilder::vdiv - if right-hand value has a valid vector type "
+                        "then it should have the same vector type as the right-hand value"
+                    );
+                }
+            } else if (isScalarType(b)) {
+                if (!b.m_type->isEqualTo(getPointedType(a))) {
+                    throw Exception(
+                        "FunctionBuilder::vdiv - if right-hand value has a scalar type then "
+                        "it should have the same type pointed to by the left-hand type"
+                    );
+                }
+            } else {
                 throw Exception(
-                    "FunctionBuilder::vdiv - type of right-hand value should either be the type "
-                    "pointed to by destination type or the same pointer type as the destination"
-                );
-            } else if (!val.m_type->getInfo().is_pointer && !((PointerType*)dest.m_type)->getDestinationType()->isEqualTo(val.m_type)) {
-                throw Exception(
-                    "FunctionBuilder::vdiv - type of right-hand value should either be the type "
-                    "pointed to by destination type or the same pointer type as the destination"
+                    "FunctionBuilder::vdiv - right-hand value should have either the same valid "
+                    "vector type as the left-hand value or the same type pointed to by the "
+                    "left-hand value"
                 );
             }
         }
 
         Instruction i(OpCode::vdiv);
-        i.operands[0].reset(dest);
-        i.operands[1].reset(val);
+        i.operands[0].reset(a);
+        i.operands[1].reset(b);
+        i.options.vdiv.componentCount = componentCount;
         return add(i);
     }
 
-    InstructionRef FunctionBuilder::vmod(const Value& dest, const Value& val) {
+    InstructionRef FunctionBuilder::vmod(const Value& a, const Value& b, u8 componentCount) {
         if (m_validationEnabled) {
-            if (!dest.m_type->getInfo().is_pointer) {
-                throw Exception("FunctionBuilder::vmod - destination value should have a pointer type");
+            if (!isValidVectorType(a)) {
+                throw Exception("FunctionBuilder::vmod - left-hand value should have a valid vector type");
             }
             
-            if (val.m_type->getInfo().is_pointer && !dest.m_type->isEqualTo(val.m_type)) {
+            if (isValidVectorType(b)) {
+                if (!b.m_type->isEqualTo(a.m_type)) {
+                    throw Exception(
+                        "FunctionBuilder::vmod - if right-hand value has a valid vector type "
+                        "then it should have the same vector type as the right-hand value"
+                    );
+                }
+            } else if (isScalarType(b)) {
+                if (!b.m_type->isEqualTo(getPointedType(a))) {
+                    throw Exception(
+                        "FunctionBuilder::vmod - if right-hand value has a scalar type then "
+                        "it should have the same type pointed to by the left-hand type"
+                    );
+                }
+            } else {
                 throw Exception(
-                    "FunctionBuilder::vmod - type of right-hand value should either be the type "
-                    "pointed to by destination type or the same pointer type as the destination"
-                );
-            } else if (!val.m_type->getInfo().is_pointer && !((PointerType*)dest.m_type)->getDestinationType()->isEqualTo(val.m_type)) {
-                throw Exception(
-                    "FunctionBuilder::vmod - type of right-hand value should either be the type "
-                    "pointed to by destination type or the same pointer type as the destination"
+                    "FunctionBuilder::vmod - right-hand value should have either the same valid "
+                    "vector type as the left-hand value or the same type pointed to by the "
+                    "left-hand value"
                 );
             }
         }
 
         Instruction i(OpCode::vmod);
-        i.operands[0].reset(dest);
-        i.operands[1].reset(val);
+        i.operands[0].reset(a);
+        i.operands[1].reset(b);
+        i.options.vmod.componentCount = componentCount;
         return add(i);
     }
 
-    InstructionRef FunctionBuilder::vneg(const Value& val) {
+    InstructionRef FunctionBuilder::vneg(const Value& val, u8 componentCount) {
         if (m_validationEnabled) {
-            if (!val.m_type->getInfo().is_pointer) {
-                throw Exception("FunctionBuilder::vneg - value to negate should have a pointer type");
+            if (!val.isReg()) {
+                throw Exception("FunctionBuilder::vneg - value to negate should refer to a register");
+            }
+
+            if (!isValidVectorType(val)) {
+                throw Exception("FunctionBuilder::vneg - value to negate should have a valid vector type");
             }
         }
 
         Instruction i(OpCode::vneg);
         i.operands[0].reset(val);
+        i.options.vneg.componentCount = componentCount;
         return add(i);
     }
 
-    InstructionRef FunctionBuilder::vdot(const Value& result, const Value& a, const Value& b) {
+    InstructionRef FunctionBuilder::vdot(const Value& result, const Value& a, const Value& b, u8 componentCount) {
         if (m_validationEnabled) {
             if (!result.isReg()) throw Exception("FunctionBuilder::vdot - result value should refer to a register");
-            if (!result.m_type->getInfo().is_pointer) {
-                throw Exception("FunctionBuilder::vdot - destination value, left-hand value, right-hand value should all be the same pointer type");
+
+            if (!isValidVectorType(a) || a.m_type->isEqualTo(b.m_type)) {
+                throw Exception("FunctionBuilder::vdot - left-hand value, right-hand value should have the same valid vector type");
             }
             
-            if (!result.m_type->isEqualTo(a.m_type) || !result.m_type->isEqualTo(b.m_type)) {
-                throw Exception("FunctionBuilder::vdot - destination value, left-hand value, right-hand value should all be the same pointer type");
+            if (!result.m_type->isEqualTo(getPointedType(a))) {
+                throw Exception("FunctionBuilder::vdot - result value should have the type pointed to by left-hand and right-hand values");
             }
         }
 
@@ -819,64 +916,70 @@ namespace codegen {
         i.operands[0].reset(result);
         i.operands[1].reset(a);
         i.operands[2].reset(b);
+        i.options.vdot.componentCount = componentCount;
         return add(i);
     }
 
-    InstructionRef FunctionBuilder::vmag(const Value& result, const Value& val) {
+    InstructionRef FunctionBuilder::vmag(const Value& result, const Value& val, u8 componentCount) {
         if (m_validationEnabled) {
             if (!result.isReg()) throw Exception("FunctionBuilder::vmag - result value should refer to a register");
-            if (!val.m_type->getInfo().is_pointer) {
-                throw Exception("FunctionBuilder::vmag - value to get the magnitude of should be a pointer");
+            
+            if (!isValidVectorType(val)) {
+                throw Exception("FunctionBuilder::vmag - value to get magnitude of should be a valid vector type");
             }
             
-            if (!result.m_type->isEqualTo(((PointerType*)val.m_type)->getDestinationType())) {
-                throw Exception("FunctionBuilder::vmag - result value should be the same type as the type pointed to by the value to get the magnitude of");
+            if (!result.m_type->isEqualTo(getPointedType(val))) {
+                throw Exception("FunctionBuilder::vmag - result value should have the type pointed to by the value to get the magnitude of");
             }
         }
 
         Instruction i(OpCode::vmag);
         i.operands[0].reset(result);
         i.operands[1].reset(val);
+        i.options.vmag.componentCount = componentCount;
         return add(i);
     }
 
-    InstructionRef FunctionBuilder::vmagsq(const Value& result, const Value& val) {
+    InstructionRef FunctionBuilder::vmagsq(const Value& result, const Value& val, u8 componentCount) {
         if (m_validationEnabled) {
             if (!result.isReg()) throw Exception("FunctionBuilder::vmagsq - result value should refer to a register");
-            if (!val.m_type->getInfo().is_pointer) {
-                throw Exception("FunctionBuilder::vmagsq - value to get the squared magnitude of should be a pointer");
+            
+            if (!isValidVectorType(val)) {
+                throw Exception("FunctionBuilder::vmagsq - value to get squared magnitude of should be a valid vector type");
             }
             
-            if (!result.m_type->isEqualTo(((PointerType*)val.m_type)->getDestinationType())) {
-                throw Exception("FunctionBuilder::vmagsq - result value should be the same type as the type pointed to by the value to get the squared magnitude of");
+            if (!result.m_type->isEqualTo(getPointedType(val))) {
+                throw Exception("FunctionBuilder::vmagsq - result value should have the type pointed to by the value to get the squared magnitude of");
             }
         }
 
         Instruction i(OpCode::vmagsq);
         i.operands[0].reset(result);
         i.operands[1].reset(val);
+        i.options.vmagsq.componentCount = componentCount;
         return add(i);
     }
 
-    InstructionRef FunctionBuilder::vnorm(const Value& val) {
-        if (m_validationEnabled && !val.m_type->getInfo().is_pointer) {
+    InstructionRef FunctionBuilder::vnorm(const Value& val, u8 componentCount) {
+        if (m_validationEnabled) {
             if (!val.isReg()) throw Exception("FunctionBuilder::vnorm - value to normalize should refer to a register");
-            throw Exception("FunctionBuilder::vnorm - value to normalize should have a pointer type");
+            if (isValidVectorType(val)) throw Exception("FunctionBuilder::vnorm - value to normalize should have a valid vector type");
         }
 
         Instruction i(OpCode::vnorm);
         i.operands[0].reset(val);
+        i.options.vnorm.componentCount = componentCount;
         return add(i);
     }
 
-    InstructionRef FunctionBuilder::vcross(const Value& result, const Value& a, const Value& b) {
+    InstructionRef FunctionBuilder::vcross(const Value& result, const Value& a, const Value& b, u8 componentCount) {
         if (m_validationEnabled) {
-            if (!result.m_type->getInfo().is_pointer) {
-                throw Exception("FunctionBuilder::vcross - destination value, left-hand value, right-hand value should all be the same pointer type");
+            if (componentCount != 3) {
+                throw Exception("FunctionBuilder::vcross - Component count must be 3");
             }
-            
-            if (!result.m_type->isEqualTo(a.m_type) || !result.m_type->isEqualTo(b.m_type)) {
-                throw Exception("FunctionBuilder::vcross - destination value, left-hand value, right-hand value should all be the same pointer type");
+
+            if (!isValidVectorType(result) || !result.m_type->isEqualTo(a.m_type) || !result.m_type->isEqualTo(b.m_type)) {
+                throw Exception("FunctionBuilder::vcross - result value, left-hand value, right-hand value should all have the same valid vector type");
             }
         }
 
@@ -884,6 +987,7 @@ namespace codegen {
         i.operands[0].reset(result);
         i.operands[1].reset(a);
         i.operands[2].reset(b);
+        i.options.vcross.componentCount = componentCount;
         return add(i);
     }
 
