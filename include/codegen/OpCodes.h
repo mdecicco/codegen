@@ -122,11 +122,7 @@ namespace codegen {
         // Calls a function
         //
         // Operand 0 will be one of:
-        // - Before compilation completes:
         //     - imm pointer to the Function being called
-        //     - vreg pointer to the Closure being called
-        // - After compilation completes:
-        //     - imm symbol_id of the function being called
         //     - vreg pointer to the Closure being called
         //
         // In all cases, the data type of operand 0 will be the function
