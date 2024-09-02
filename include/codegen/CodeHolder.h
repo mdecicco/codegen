@@ -11,7 +11,7 @@ namespace codegen {
 
     class CodeHolder {
         public:
-            CodeHolder(const utils::Array<Instruction>& code);
+            CodeHolder(const Array<Instruction>& code);
 
             void rebuildAll();
             void rebuildLabels();
@@ -23,6 +23,6 @@ namespace codegen {
             LabelMap labels;
             ControlFlowGraph cfg;
             LivenessData liveness;
-            utils::Array<Instruction> code;
+            Array<Instruction> code;
     };
 }
