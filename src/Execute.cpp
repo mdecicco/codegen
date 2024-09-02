@@ -11,7 +11,12 @@
 #include <utils/Array.hpp>
 
 namespace codegen {
-    TestExecuterCallHandler::TestExecuterCallHandler(CodeHolder* ch) : m_code(ch) {
+    TestExecuterCallHandler::TestExecuterCallHandler(CodeHolder* ch) : m_code(new CodeHolder(*ch)) {
+    }
+
+    TestExecuterCallHandler::~TestExecuterCallHandler() {
+        delete m_code;
+        m_code = nullptr;
     }
 
     void TestExecuterCallHandler::call(Function* target, void* retDest, void** args) {
@@ -471,7 +476,11 @@ namespace codegen {
 
                         for (u32 i = 0;i < m_nextCallParams.size();i++) {
                             if (i >= args.size()) break;
-                            outArgs[i + argOffset] = &m_nextCallParams[i];
+                            if (!args[i].type->getInfo().is_primitive && !args[i].type->getInfo().is_pointer) {
+                                outArgs[i + argOffset] = reinterpret_cast<void*>(m_nextCallParams[i]);
+                            } else {
+                                outArgs[i + argOffset] = &m_nextCallParams[i];
+                            }
                         }
 
                         fn->getCallHandler()->call(fn, retPtr, outArgs);

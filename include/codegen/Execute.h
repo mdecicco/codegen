@@ -16,6 +16,7 @@ namespace codegen {
     class TestExecuterCallHandler : public ICallHandler {
         public:
             TestExecuterCallHandler(CodeHolder* ch);
+            virtual ~TestExecuterCallHandler();
 
             virtual void call(Function* target, void* retDest, void** args);
         
