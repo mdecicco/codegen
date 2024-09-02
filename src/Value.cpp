@@ -239,6 +239,37 @@ namespace codegen {
             return Value();
         }
 
+        const type_meta& mSrc = m_type->getInfo();
+        const type_meta& mDst = tp->getInfo();
+
+        if (mSrc.is_pointer && mDst.is_pointer) {
+            Value ret = Value(*this);
+            ret.m_type = tp;
+            return ret;
+        } else if (mSrc.is_pointer) {
+            DataType* ptp = ((PointerType*)m_type)->getDestinationType();
+            const type_meta& ti = ptp->getInfo();
+
+            if (!ti.is_primitive && !ti.is_pointer && ptp->isEqualTo(tp)) {
+                // converting from ClassTp* to ClassTp is fine, since values
+                // of type ClassTp are pointers internally anyway
+                Value ret = Value(*this);
+                ret.m_type = tp;
+                return ret;
+            }
+        } else if (mDst.is_pointer) {
+            DataType* ptp = ((PointerType*)tp)->getDestinationType();
+            const type_meta& ti = ptp->getInfo();
+
+            if (!ti.is_primitive && !ti.is_pointer && ptp->isEqualTo(m_type)) {
+                // converting from ClassTp to ClassTp* is fine, since values
+                // of type ClassTp are pointers internally anyway
+                Value ret = Value(*this);
+                ret.m_type = tp;
+                return ret;
+            }
+        }
+
         if (!m_type->isConvertibleTo(tp)) {
             m_owner->logError(
                 "No conversion from type '%s' to '%s' is available",
@@ -253,13 +284,7 @@ namespace codegen {
             return *this;
         }
 
-        if (m_type->getInfo().is_pointer && tp->getInfo().is_pointer) {
-            Value ret = Value(*this);
-            ret.m_type = tp;
-            return ret;
-        }
-
-        if (m_type->getInfo().is_primitive && tp->getInfo().is_primitive) {
+        if (mSrc.is_primitive && mDst.is_primitive) {
             Value ret = m_owner->val(tp);
             m_owner->cvt(ret, *this);
             return ret;
