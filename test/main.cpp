@@ -1,6 +1,7 @@
 #include <codegen/FunctionBuilder.h>
 #include <codegen/CodeHolder.h>
 #include <codegen/Execute.h>
+#include <codegen/TestBackend.h>
 #include <utils/interfaces/ILogHandler.h>
 #include <bind/bind.h>
 using namespace codegen;
@@ -112,7 +113,7 @@ int main(int argc, const char** argv) {
 
             something -= fb.generateCall(&fb, { fb.val(i32(2)), fb.val(i32(3)) });
         });
-
+        
         fb.generateReturn(something);
 
         auto code = fb.getCode();
@@ -120,17 +121,14 @@ int main(int argc, const char** argv) {
             printf("0x%0.3X | %s\n", i, code[i].toString().c_str());
         }
         fflush(stdout);
-        
-        CodeHolder ch(code);
-        ch.owner = &fb;
 
-        TestExecuterCallHandler te(&ch);
-        fn.setCallHandler(&te);
+        TestBackend be;
+        be.process(&fb);
 
         i32 result = 0;
         i32 a1 = 10, a2 = 15;
         void* args1[] = { &a1, &a2 };
-        te.call(&fn, &result, args1);
+        fn.call(&result, args1);
 
         printf("result: %d\n", result);
         fflush(stdout);
