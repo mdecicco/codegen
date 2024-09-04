@@ -18,7 +18,7 @@ namespace codegen {
             TestExecuterCallHandler(CodeHolder* ch);
             virtual ~TestExecuterCallHandler();
 
-            virtual void call(Function* target, void* retDest, void** args);
+            virtual void call(void* retDest, void** args);
         
         protected:
             CodeHolder* m_code;

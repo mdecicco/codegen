@@ -11,7 +11,7 @@
 #include <utils/Array.hpp>
 
 namespace codegen {
-    TestExecuterCallHandler::TestExecuterCallHandler(CodeHolder* ch) : m_code(new CodeHolder(*ch)) {
+    TestExecuterCallHandler::TestExecuterCallHandler(CodeHolder* ch) : ICallHandler(ch->owner->getFunction()), m_code(new CodeHolder(*ch)) {
     }
 
     TestExecuterCallHandler::~TestExecuterCallHandler() {
@@ -19,12 +19,12 @@ namespace codegen {
         m_code = nullptr;
     }
 
-    void TestExecuterCallHandler::call(Function* target, void* retDest, void** args) {
+    void TestExecuterCallHandler::call(void* retDest, void** args) {
         TestExecuter exe(m_code);
 
         exe.setReturnValuePointer(retDest);
 
-        FunctionType* sig = target->getSignature();
+        FunctionType* sig = m_target->getSignature();
         auto argInfo = sig->getArgs();
 
         u32 off = 0;
@@ -483,7 +483,7 @@ namespace codegen {
                             }
                         }
 
-                        fn->getCallHandler()->call(fn, retPtr, outArgs);
+                        fn->call(retPtr, outArgs);
                     } else {
                         // todo: function values
                     }

@@ -13,9 +13,6 @@ namespace codegen {
     }
 
     void TestBackend::transform(CodeHolder* processedCode) {
-        TestExecuterCallHandler* callHandler = new TestExecuterCallHandler(processedCode);
-        m_callHandlers.push(callHandler);
-
-        processedCode->owner->getFunction()->setCallHandler(callHandler);
+        processedCode->owner->getFunction()->setCallHandler(new TestExecuterCallHandler(processedCode));
     }
 };
