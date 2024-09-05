@@ -42,25 +42,25 @@ int main(int argc, const char** argv) {
     Registry::Create();
 
     {
-        build<void>("void");
-        build<bool>("bool");
-        build<i8>("i8");
-        build<i16>("i16");
-        build<i32>("i32");
-        build<i64>("i64");
-        build<u8>("u8");
-        build<u16>("u16");
-        build<u32>("u32");
-        build<u64>("u64");
-        build<f32>("f32");
-        build<f64>("f64");
+        type<void>("void");
+        type<bool>("bool");
+        type<i8>("i8");
+        type<i16>("i16");
+        type<i32>("i32");
+        type<i64>("i64");
+        type<u8>("u8");
+        type<u16>("u16");
+        type<u32>("u32");
+        type<u64>("u64");
+        type<f32>("f32");
+        type<f64>("f64");
 
-        auto ts1 = build<test_struct_1>("test1");
+        auto ts1 = type<test_struct_1>("test1");
         ts1.prop("a", &test_struct_1::a);
         ts1.prop("b", &test_struct_1::b);
         ts1.prop("c", &test_struct_1::c);
 
-        auto ts2 = build<test_struct_2>("test2");
+        auto ts2 = type<test_struct_2>("test2");
         ts2.prop("a", &test_struct_2::a);
         ts2.prop("b", &test_struct_2::b);
         ts2.prop("c", &test_struct_2::c);
