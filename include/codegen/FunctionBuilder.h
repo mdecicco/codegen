@@ -4,6 +4,7 @@
 #include <codegen/SourceLocation.h>
 #include <codegen/SourceMap.h>
 #include <codegen/Scope.h>
+#include <bind/Registry.hpp>
 #include <utils/Array.h>
 #include <utils/interfaces/IWithLogging.h>
 
@@ -990,13 +991,30 @@ namespace codegen {
              * @note
              * If `DataType` is non-primitive then this will allocate space on the stack for it within the current `Scope`.
              * The stack space will not be initialized and this function will return a value with a type that is a pointer
-             * to `tp`. To clarify, if `tp` refers to `SomeObject`, the type of the return value will be `SomeObject*`
+             * to `tp`. To clarify, if `tp` refers to `SomeObject`, the type of the return value will refer to `SomeObject*`
              * 
              * @param tp Data type to allocate a register (and maybe stack space) for
              * @return A `Value` that represents a virtual register, with either the provided type or a pointer to that type
              * if the value must be allocated on the stack
              */
             Value val(DataType* tp);
+
+            /**
+             * @brief Allocates a register (and maybe stack space) for the given type `T`
+             * 
+             * @note
+             * If `T` is non-primitive then this will allocate space on the stack for it within the current `Scope`. The
+             * stack space will not be initialized and this function will return a value with a type that is a pointer to
+             * `T`. To clarify, if `T` is `SomeObject`, the type of the return value will refer to `SomeObject*`
+             * 
+             * @tparam T Data type to allocate a register (and maybe stack space) for
+             * @return A `Value` that represents a virtual register, with either the provided type or a pointer to that type
+             * if the value must be allocated on the stack
+             */
+            template <typename T>
+            Value val() {
+                return val(Registry::GetType<T>());
+            }
 
             /**
              * @brief Allocates a register that will contain a pointer to the value represented by `value`.

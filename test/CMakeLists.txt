@@ -14,6 +14,10 @@ include_directories(
     ${FFI_INCLUDE_DIR}
 )
 
+if (NOT TARGET Catch2::Catch2)
+    add_subdirectory(Catch2)
+endif()
+
 file(GLOB all_sources "./*.cpp")
 add_executable(codegen_test ${all_sources})
-target_link_libraries(codegen_test codegen)
+target_link_libraries(codegen_test codegen Catch2::Catch2)
