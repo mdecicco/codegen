@@ -270,6 +270,10 @@ namespace codegen {
             }
         }
 
+        if (tp->isEqualTo(m_type)) {
+            return *this;
+        }
+
         if (!m_type->isConvertibleTo(tp)) {
             m_owner->logError(
                 "No conversion from type '%s' to '%s' is available",
@@ -278,10 +282,6 @@ namespace codegen {
             );
 
             return Value();
-        }
-
-        if (tp->isEquivalentTo(m_type)) {
-            return *this;
         }
 
         if (mSrc.is_primitive && mDst.is_primitive) {

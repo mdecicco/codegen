@@ -1,7 +1,7 @@
 #include "Common.h"
 
 template <typename T1, typename T2>
-void doConversion(Function* fn) {
+void doPrimitiveConversion(Function* fn) {
     DataType* dstTp = Registry::GetType<T2>();
     FunctionBuilder fb(fn);
     Value src = fb.val<T1>();
@@ -31,16 +31,16 @@ void testPrimitiveConversion() {
     setupTest();
 
     Function fn("test", Registry::Signature<void>(), Registry::GlobalNamespace());
-    doConversion<T, u8>(&fn);
-    doConversion<T, u16>(&fn);
-    doConversion<T, u32>(&fn);
-    doConversion<T, u64>(&fn);
-    doConversion<T, i8>(&fn);
-    doConversion<T, i16>(&fn);
-    doConversion<T, i32>(&fn);
-    doConversion<T, i64>(&fn);
-    doConversion<T, f32>(&fn);
-    doConversion<T, f64>(&fn);
+    doPrimitiveConversion<T, u8>(&fn);
+    doPrimitiveConversion<T, u16>(&fn);
+    doPrimitiveConversion<T, u32>(&fn);
+    doPrimitiveConversion<T, u64>(&fn);
+    doPrimitiveConversion<T, i8>(&fn);
+    doPrimitiveConversion<T, i16>(&fn);
+    doPrimitiveConversion<T, i32>(&fn);
+    doPrimitiveConversion<T, i64>(&fn);
+    doPrimitiveConversion<T, f32>(&fn);
+    doPrimitiveConversion<T, f64>(&fn);
 }
 
 void testPrimitiveBinaryOperator(const Value& lhs, const Value& rhs, Value (Value::*op)(const Value&) const, OpCode expectedOp, bool isAssignment) {
@@ -55,7 +55,7 @@ void testPrimitiveBinaryOperator(const Value& lhs, const Value& rhs, Value (Valu
 
     Value effectiveRhs(rhs);
 
-    if (!rhs.getType()->isEquivalentTo(lhs.getType())) {
+    if (!rhs.getType()->isEqualTo(lhs.getType())) {
         // a conversion instruction should've been emitted before the operation
         REQUIRE((code.size() - codeBegin) == 2);
 
@@ -254,7 +254,7 @@ void testAllPrimitiveOperatorPermutations() {
     testPrimitiveOperators<T, f64>();
 }
 
-TEST_CASE("Test Value", "[bind]") {
+TEST_CASE("Test Primitive Values", "[bind]") {
     SECTION("Primitive Value Conversion") {
         testPrimitiveConversion<u8>();
         testPrimitiveConversion<u16>();
