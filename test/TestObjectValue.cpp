@@ -35,7 +35,7 @@ namespace conversion {
         dt.ctor<const convertible_via_ctor&>();
         dt.prop("_", &dest_type::dummy);
 
-        c1.castOperator<dest_type>();
+        c1.opCast<dest_type>();
     }
 
     void testObjectConversion() {
