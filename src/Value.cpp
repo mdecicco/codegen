@@ -809,10 +809,25 @@ namespace codegen {
         }
 
         Function* strictMatch = nullptr;
-        auto opMethods = m_type->findMethods(FuncMatch(overrideName).noArgs(), &strictMatch);
+        FuncMatch search = FuncMatch(overrideName);
+
+        if (_i == OpCode::iinc || _i == OpCode::idec) {
+            if (resultIsPreOp) search.noArgs();
+            else {
+                // postfix increment/decrement have one single argument and it's always i32
+                search.argTps({ Registry::GetType<i32>() }, true);
+            }
+        } else search.noArgs();
+
+        auto opMethods = m_type->findMethods(search, &strictMatch);
 
         if (strictMatch) {
-            return m_owner->generateCall(strictMatch, {}, *this);
+            Array<Value> opArgs;
+            if (!resultIsPreOp && (_i == OpCode::iinc || _i == OpCode::idec)) {
+                opArgs.push(m_owner->val(i32(0)));
+            }
+
+            return m_owner->generateCall(strictMatch, opArgs, *this);
         }
 
         if (opMethods.size() > 1) {
@@ -837,6 +852,11 @@ namespace codegen {
             return Value();
         }
         
-        return m_owner->generateCall(strictMatch, {}, *this);
+        Array<Value> opArgs;
+        if (!resultIsPreOp && (_i == OpCode::iinc || _i == OpCode::idec)) {
+            opArgs.push(m_owner->val(i32(0)));
+        }
+        
+        return m_owner->generateCall(strictMatch, opArgs, *this);
     }
 };
