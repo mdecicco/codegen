@@ -153,7 +153,7 @@ namespace codegen {
         const Value& selfPtr
     ) {
         FunctionType* sig = func->getSignature();
-        auto argInfo = sig->getArgs();
+        auto argInfo = func->getExplicitArgs();
 
         if (argInfo.size() != args.size()) {
             logError(
@@ -328,23 +328,9 @@ namespace codegen {
                 );
             }
         } else if (ctors.size() == 1) {
-            // constructors are wrapped in cdecls because they have to be.
-            // 'this' pointer should be passed as first argument instead
-            // of the normal route
-            Array<Value> argsWithThisPtr(args.size() + 1);
-            argsWithThisPtr.push(destPtr);
-            argsWithThisPtr.append(args);
-
-            generateCall(ctors[0], argsWithThisPtr);
+            generateCall(ctors[0], args, destPtr);
         } else if (ctor) {
-            // constructors are wrapped in cdecls because they have to be.
-            // 'this' pointer should be passed as first argument instead
-            // of the normal route
-            Array<Value> argsWithThisPtr(args.size() + 1);
-            argsWithThisPtr.push(destPtr);
-            argsWithThisPtr.append(args);
-
-            generateCall(ctor, argsWithThisPtr);
+            generateCall(ctor, args, destPtr);
         } else {
             String argStr;
             for (u32 i = 0;i < args.size();i++) {
