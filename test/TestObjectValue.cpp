@@ -34,7 +34,6 @@ namespace conversion {
         dt.ctor();
         dt.ctor<const convertible_via_ctor&>();
         dt.prop("_", &dest_type::dummy);
-
         c1.opCast<dest_type>();
     }
 
@@ -65,21 +64,23 @@ namespace conversion {
             REQUIRE(fb.getCode().size() > afterDecl);
 
             Array<Value> params;
+            Value self;
             Function* ctor = nullptr;
             for (u32 i = afterDecl;i < fb.getCode().size();i++) {
                 Instruction& op = fb.getCode()[i];
                 if (op.op == OpCode::param) params.push(op.operands[0]);
                 else if (op.op == OpCode::call) {
                     ctor = (Function*)op.operands[0].getImm().p;
+                    self.reset(op.operands[2]);
                     break;
                 }
             }
 
             REQUIRE(ctor != nullptr);
             REQUIRE(ctor->getName() == ConstructorName);
-            REQUIRE(params.size() == 2);
-            REQUIRE(params[0].isEquivalentTo(dst));
-            REQUIRE(params[1].isEquivalentTo(src));
+            REQUIRE(params.size() == 1);
+            REQUIRE(params[0].isEquivalentTo(src));
+            REQUIRE(self.isEquivalentTo(dst));
         }
 
         SECTION("Conversion via cast operator") {
@@ -117,14 +118,220 @@ namespace conversion {
     }
 };
 
+namespace operators {
+    struct test_type {
+        i32 dummy;
+
+        i32 operator +(i32) { return 0; }
+        i32 operator -(i32) { return 0; }
+        i32 operator *(i32) { return 0; }
+        i32 operator /(i32) { return 0; }
+        i32 operator %(i32) { return 0; }
+        i32 operator +=(i32) { return 0; }
+        i32 operator -=(i32) { return 0; }
+        i32 operator *=(i32) { return 0; }
+        i32 operator /=(i32) { return 0; }
+        i32 operator %=(i32) { return 0; }
+        i32 operator &&(i32) { return 0; }
+        i32 operator ||(i32) { return 0; }
+        i32 operator <<(i32) { return 0; }
+        i32 operator >>(i32) { return 0; }
+        i32 operator &(i32) { return 0; }
+        i32 operator |(i32) { return 0; }
+        i32 operator ^(i32) { return 0; }
+        i32 operator &=(i32) { return 0; }
+        i32 operator |=(i32) { return 0; }
+        i32 operator ^=(i32) { return 0; }
+        i32 operator =(i32) { return 0; }
+        i32 operator ==(i32) { return 0; }
+        i32 operator !=(i32) { return 0; }
+        i32 operator <(i32) { return 0; }
+        i32 operator <=(i32) { return 0; }
+        i32 operator >(i32) { return 0; }
+        i32 operator >=(i32) { return 0; }
+        i32 operator ++() { return 0; }
+        i32 operator ++(i32) { return 0; }
+        i32 operator --() { return 0; }
+        i32 operator --(i32) { return 0; }
+        i32 operator -() { return 0; }
+        i32 operator !() { return 0; }
+        i32 operator ~() { return 0; }
+    };
+
+    void testOperatorNotPresent(const char* op, Value (*doOp)(const Value& lhs, const Value& rhs)) {
+        Function fn("testOp", Registry::Signature<void>(), Registry::GlobalNamespace());
+        FunctionBuilder fb(&fn);
+
+        Value lhs = fb.val<test_type>();
+        Value rhs = fb.val<i32>();
+        u32 afterDecl = fb.getCode().size();
+        
+        CAPTURE(op);
+        REQUIRE(!fb.didError());
+
+        Value result = doOp(*lhs, rhs);
+
+        REQUIRE(result.isEmpty());
+        REQUIRE(afterDecl == fb.getCode().size());
+        REQUIRE(fb.didError());
+    }
+
+    void testOperatorPresent(const char* op, Value (*doOp)(const Value& lhs, const Value& rhs)) {
+        Function fn("testOp", Registry::Signature<void>(), Registry::GlobalNamespace());
+        FunctionBuilder fb(&fn);
+
+        Value lhs = fb.val<test_type>();
+        Value rhs = fb.val<i32>();
+        u32 afterDecl = fb.getCode().size();
+
+        CAPTURE(op);
+        REQUIRE(!fb.didError());
+
+        Value result = doOp(*lhs, rhs);
+
+        REQUIRE(!result.isEmpty());
+        REQUIRE(result.getType()->isEqualTo(Registry::GetType<i32>()));
+        REQUIRE(afterDecl != fb.getCode().size());
+        REQUIRE(!fb.didError());
+
+        auto code = fb.getCode();
+        for (u32 i = afterDecl;i < code.size();i++) {
+            auto inst = code[i];
+            if (inst.op == OpCode::call) {
+                Function* fn = (Function*)inst.operands[0].getImm().p;
+                REQUIRE(fn->getName() == op);
+                break;
+            }
+        }
+    }
+
+    void testOperatorsNotPresent() {
+        setupTest();
+
+        auto dt = type<test_type>("test");
+
+        testOperatorNotPresent("+", +[](const Value& lhs, const Value& rhs) { return lhs + rhs; });
+        testOperatorNotPresent("-", +[](const Value& lhs, const Value& rhs) { return lhs - rhs; });
+        testOperatorNotPresent("*", +[](const Value& lhs, const Value& rhs) { return lhs * rhs; });
+        testOperatorNotPresent("/", +[](const Value& lhs, const Value& rhs) { return lhs / rhs; });
+        testOperatorNotPresent("%", +[](const Value& lhs, const Value& rhs) { return lhs % rhs; });
+        testOperatorNotPresent("+=", +[](const Value& lhs, const Value& rhs) { return lhs += rhs; });
+        testOperatorNotPresent("-=", +[](const Value& lhs, const Value& rhs) { return lhs -= rhs; });
+        testOperatorNotPresent("*=", +[](const Value& lhs, const Value& rhs) { return lhs *= rhs; });
+        testOperatorNotPresent("/=", +[](const Value& lhs, const Value& rhs) { return lhs /= rhs; });
+        testOperatorNotPresent("%=", +[](const Value& lhs, const Value& rhs) { return lhs %= rhs; });
+        testOperatorNotPresent("&&", +[](const Value& lhs, const Value& rhs) { return lhs && rhs; });
+        testOperatorNotPresent("||", +[](const Value& lhs, const Value& rhs) { return lhs || rhs; });
+        testOperatorNotPresent("<<", +[](const Value& lhs, const Value& rhs) { return lhs << rhs; });
+        testOperatorNotPresent(">>", +[](const Value& lhs, const Value& rhs) { return lhs >> rhs; });
+        testOperatorNotPresent("&", +[](const Value& lhs, const Value& rhs) { return lhs & rhs; });
+        testOperatorNotPresent("|", +[](const Value& lhs, const Value& rhs) { return lhs | rhs; });
+        testOperatorNotPresent("^", +[](const Value& lhs, const Value& rhs) { return lhs ^ rhs; });
+        testOperatorNotPresent("&=", +[](const Value& lhs, const Value& rhs) { return lhs &= rhs; });
+        testOperatorNotPresent("|=", +[](const Value& lhs, const Value& rhs) { return lhs |= rhs; });
+        testOperatorNotPresent("^=", +[](const Value& lhs, const Value& rhs) { return lhs ^= rhs; });
+        testOperatorNotPresent("=", +[](const Value& lhs, const Value& rhs) { return lhs = rhs; });
+        testOperatorNotPresent("==", +[](const Value& lhs, const Value& rhs) { return lhs == rhs; });
+        testOperatorNotPresent("!=", +[](const Value& lhs, const Value& rhs) { return lhs != rhs; });
+        testOperatorNotPresent(">", +[](const Value& lhs, const Value& rhs) { return lhs > rhs; });
+        testOperatorNotPresent(">=", +[](const Value& lhs, const Value& rhs) { return lhs >= rhs; });
+        testOperatorNotPresent("<", +[](const Value& lhs, const Value& rhs) { return lhs < rhs; });
+        testOperatorNotPresent("<=", +[](const Value& lhs, const Value& rhs) { return lhs <= rhs; });
+        testOperatorNotPresent("++", +[](const Value& lhs, const Value& rhs) { return ++lhs; });
+        testOperatorNotPresent("--", +[](const Value& lhs, const Value& rhs) { return --lhs; });
+        testOperatorNotPresent("++", +[](const Value& lhs, const Value& rhs) { return lhs++; });
+        testOperatorNotPresent("--", +[](const Value& lhs, const Value& rhs) { return lhs--; });
+        testOperatorNotPresent("-", +[](const Value& lhs, const Value& rhs) { return -lhs; });
+        testOperatorNotPresent("!", +[](const Value& lhs, const Value& rhs) { return !lhs; });
+        testOperatorNotPresent("~", +[](const Value& lhs, const Value& rhs) { return ~lhs; });
+    }
+
+    void testOperatorsPresent() {
+        setupTest();
+
+        auto dt = type<test_type>("test");
+
+        dt.opAdd<i32, i32>();
+        dt.opSub<i32, i32>();
+        dt.opMul<i32, i32>();
+        dt.opDiv<i32, i32>();
+        dt.opMod<i32, i32>();
+        dt.opAddEq<i32, i32>();
+        dt.opSubEq<i32, i32>();
+        dt.opMulEq<i32, i32>();
+        dt.opDivEq<i32, i32>();
+        dt.opModEq<i32, i32>();
+        dt.opLogicalAnd<i32, i32>();
+        dt.opLogicalOr<i32, i32>();
+        dt.opShiftLeft<i32, i32>();
+        dt.opShiftRight<i32, i32>();
+        dt.opAnd<i32, i32>();
+        dt.opOr<i32, i32>();
+        dt.opXOr<i32, i32>();
+        dt.opAndEq<i32, i32>();
+        dt.opOrEq<i32, i32>();
+        dt.opXOrEq<i32, i32>();
+        dt.opAssign<i32, i32>();
+        dt.opEquality<i32, i32>();
+        dt.opInequality<i32, i32>();
+        dt.opGreater<i32, i32>();
+        dt.opGreaterEq<i32, i32>();
+        dt.opLess<i32, i32>();
+        dt.opLessEq<i32, i32>();
+        dt.opPreInc<i32>();
+        dt.opPostInc<i32>();
+        dt.opPreDec<i32>();
+        dt.opPostDec<i32>();
+        dt.opNegate<i32>();
+        dt.opNot<i32>();
+        dt.opInvert<i32>();
+        
+        testOperatorPresent("+", +[](const Value& lhs, const Value& rhs) { return lhs + rhs; });
+        testOperatorPresent("-", +[](const Value& lhs, const Value& rhs) { return lhs - rhs; });
+        testOperatorPresent("*", +[](const Value& lhs, const Value& rhs) { return lhs * rhs; });
+        testOperatorPresent("/", +[](const Value& lhs, const Value& rhs) { return lhs / rhs; });
+        testOperatorPresent("%", +[](const Value& lhs, const Value& rhs) { return lhs % rhs; });
+        testOperatorPresent("+=", +[](const Value& lhs, const Value& rhs) { return lhs += rhs; });
+        testOperatorPresent("-=", +[](const Value& lhs, const Value& rhs) { return lhs -= rhs; });
+        testOperatorPresent("*=", +[](const Value& lhs, const Value& rhs) { return lhs *= rhs; });
+        testOperatorPresent("/=", +[](const Value& lhs, const Value& rhs) { return lhs /= rhs; });
+        testOperatorPresent("%=", +[](const Value& lhs, const Value& rhs) { return lhs %= rhs; });
+        testOperatorPresent("&&", +[](const Value& lhs, const Value& rhs) { return lhs && rhs; });
+        testOperatorPresent("||", +[](const Value& lhs, const Value& rhs) { return lhs || rhs; });
+        testOperatorPresent("<<", +[](const Value& lhs, const Value& rhs) { return lhs << rhs; });
+        testOperatorPresent(">>", +[](const Value& lhs, const Value& rhs) { return lhs >> rhs; });
+        testOperatorPresent("&", +[](const Value& lhs, const Value& rhs) { return lhs & rhs; });
+        testOperatorPresent("|", +[](const Value& lhs, const Value& rhs) { return lhs | rhs; });
+        testOperatorPresent("^", +[](const Value& lhs, const Value& rhs) { return lhs ^ rhs; });
+        testOperatorPresent("&=", +[](const Value& lhs, const Value& rhs) { return lhs &= rhs; });
+        testOperatorPresent("|=", +[](const Value& lhs, const Value& rhs) { return lhs |= rhs; });
+        testOperatorPresent("^=", +[](const Value& lhs, const Value& rhs) { return lhs ^= rhs; });
+        testOperatorPresent("=", +[](const Value& lhs, const Value& rhs) { return lhs = rhs; });
+        testOperatorPresent("==", +[](const Value& lhs, const Value& rhs) { return lhs == rhs; });
+        testOperatorPresent("!=", +[](const Value& lhs, const Value& rhs) { return lhs != rhs; });
+        testOperatorPresent(">", +[](const Value& lhs, const Value& rhs) { return lhs > rhs; });
+        testOperatorPresent(">=", +[](const Value& lhs, const Value& rhs) { return lhs >= rhs; });
+        testOperatorPresent("<", +[](const Value& lhs, const Value& rhs) { return lhs < rhs; });
+        testOperatorPresent("<=", +[](const Value& lhs, const Value& rhs) { return lhs <= rhs; });
+        testOperatorPresent("!", +[](const Value& lhs, const Value& rhs) { return !lhs; });
+        testOperatorPresent("~", +[](const Value& lhs, const Value& rhs) { return ~lhs; });
+        testOperatorPresent("++", +[](const Value& lhs, const Value& rhs) { return ++lhs; });
+        testOperatorPresent("--", +[](const Value& lhs, const Value& rhs) { return --lhs; });
+        testOperatorPresent("++", +[](const Value& lhs, const Value& rhs) { return lhs++; });
+        testOperatorPresent("--", +[](const Value& lhs, const Value& rhs) { return lhs--; });
+    }
+};
+
 TEST_CASE("Test Object Values", "[bind]") {
     SECTION("Object Value Conversion") {
         conversion::testObjectConversion();
     }
     
-    SECTION("Object Value Operators") {
+    SECTION("Object Value Operators When Not Bound") {
+        operators::testOperatorsNotPresent();
     }
     
-    SECTION("Object Value Operators") {
+    SECTION("Object Value Operators When Bound") {
+        operators::testOperatorsPresent();
     }
 }
