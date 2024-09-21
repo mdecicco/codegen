@@ -18,6 +18,7 @@ if (NOT TARGET Catch2::Catch2)
     add_subdirectory(Catch2)
 endif()
 
-file(GLOB all_sources "./*.cpp")
+file(GLOB all_sources "./*.cpp" "../deps/bind/test/*.cpp")
+list(FILTER all_sources EXCLUDE REGEX "\\.\\./deps/bind/test/main.cpp$")
 add_executable(codegen_test ${all_sources})
 target_link_libraries(codegen_test codegen Catch2::Catch2)
