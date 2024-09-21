@@ -1,4 +1,5 @@
 #include "Common.h"
+#include <codegen/TestBackend.h>
 
 namespace conversion {
     struct not_convertible {
@@ -123,39 +124,39 @@ namespace operators {
         i32 dummy;
 
         i32 operator +(i32) { return 0; }
-        i32 operator -(i32) { return 0; }
-        i32 operator *(i32) { return 0; }
-        i32 operator /(i32) { return 0; }
-        i32 operator %(i32) { return 0; }
-        i32 operator +=(i32) { return 0; }
-        i32 operator -=(i32) { return 0; }
-        i32 operator *=(i32) { return 0; }
-        i32 operator /=(i32) { return 0; }
-        i32 operator %=(i32) { return 0; }
-        i32 operator &&(i32) { return 0; }
-        i32 operator ||(i32) { return 0; }
-        i32 operator <<(i32) { return 0; }
-        i32 operator >>(i32) { return 0; }
-        i32 operator &(i32) { return 0; }
-        i32 operator |(i32) { return 0; }
-        i32 operator ^(i32) { return 0; }
-        i32 operator &=(i32) { return 0; }
-        i32 operator |=(i32) { return 0; }
-        i32 operator ^=(i32) { return 0; }
-        i32 operator =(i32) { return 0; }
-        i32 operator ==(i32) { return 0; }
-        i32 operator !=(i32) { return 0; }
-        i32 operator <(i32) { return 0; }
-        i32 operator <=(i32) { return 0; }
-        i32 operator >(i32) { return 0; }
-        i32 operator >=(i32) { return 0; }
-        i32 operator ++() { return 0; }
-        i32 operator ++(i32) { return 0; }
-        i32 operator --() { return 0; }
-        i32 operator --(i32) { return 0; }
-        i32 operator -() { return 0; }
-        i32 operator !() { return 0; }
-        i32 operator ~() { return 0; }
+        i32 operator -(i32) { return 1; }
+        i32 operator *(i32) { return 2; }
+        i32 operator /(i32) { return 3; }
+        i32 operator %(i32) { return 4; }
+        i32 operator +=(i32) { return 5; }
+        i32 operator -=(i32) { return 6; }
+        i32 operator *=(i32) { return 7; }
+        i32 operator /=(i32) { return 8; }
+        i32 operator %=(i32) { return 9; }
+        i32 operator &&(i32) { return 10; }
+        i32 operator ||(i32) { return 11; }
+        i32 operator <<(i32) { return 12; }
+        i32 operator >>(i32) { return 13; }
+        i32 operator &(i32) { return 14; }
+        i32 operator |(i32) { return 15; }
+        i32 operator ^(i32) { return 16; }
+        i32 operator &=(i32) { return 17; }
+        i32 operator |=(i32) { return 18; }
+        i32 operator ^=(i32) { return 19; }
+        i32 operator =(i32) { return 20; }
+        i32 operator ==(i32) { return 21; }
+        i32 operator !=(i32) { return 22; }
+        i32 operator <(i32) { return 23; }
+        i32 operator <=(i32) { return 24; }
+        i32 operator >(i32) { return 25; }
+        i32 operator >=(i32) { return 26; }
+        i32 operator ++() { return 27; }
+        i32 operator ++(i32) { return 28; }
+        i32 operator --() { return 29; }
+        i32 operator --(i32) { return 30; }
+        i32 operator -() { return 31; }
+        i32 operator !() { return 32; }
+        i32 operator ~() { return 33; }
     };
 
     void testOperatorNotPresent(const char* op, Value (*doOp)(const Value& lhs, const Value& rhs)) {
@@ -176,8 +177,8 @@ namespace operators {
         REQUIRE(fb.didError());
     }
 
-    void testOperatorPresent(const char* op, Value (*doOp)(const Value& lhs, const Value& rhs)) {
-        Function fn("testOp", Registry::Signature<void>(), Registry::GlobalNamespace());
+    void testOperatorPresent(const char* op, i32 expectedResult, Value (*doOp)(const Value& lhs, const Value& rhs)) {
+        Function fn("testOp", Registry::Signature<i32>(), Registry::GlobalNamespace());
         FunctionBuilder fb(&fn);
 
         Value lhs = fb.val<test_type>();
@@ -203,6 +204,18 @@ namespace operators {
                 break;
             }
         }
+
+        fb.ret(result);
+
+        i32 resultValue = -1;
+
+        {
+            TestBackend tb;
+            tb.process(&fb);
+            fn.call(&resultValue, nullptr);
+        }
+
+        REQUIRE(resultValue == expectedResult);
     }
 
     void testOperatorsNotPresent() {
@@ -286,43 +299,44 @@ namespace operators {
         dt.opNot<i32>();
         dt.opInvert<i32>();
         
-        testOperatorPresent("+", +[](const Value& lhs, const Value& rhs) { return lhs + rhs; });
-        testOperatorPresent("-", +[](const Value& lhs, const Value& rhs) { return lhs - rhs; });
-        testOperatorPresent("*", +[](const Value& lhs, const Value& rhs) { return lhs * rhs; });
-        testOperatorPresent("/", +[](const Value& lhs, const Value& rhs) { return lhs / rhs; });
-        testOperatorPresent("%", +[](const Value& lhs, const Value& rhs) { return lhs % rhs; });
-        testOperatorPresent("+=", +[](const Value& lhs, const Value& rhs) { return lhs += rhs; });
-        testOperatorPresent("-=", +[](const Value& lhs, const Value& rhs) { return lhs -= rhs; });
-        testOperatorPresent("*=", +[](const Value& lhs, const Value& rhs) { return lhs *= rhs; });
-        testOperatorPresent("/=", +[](const Value& lhs, const Value& rhs) { return lhs /= rhs; });
-        testOperatorPresent("%=", +[](const Value& lhs, const Value& rhs) { return lhs %= rhs; });
-        testOperatorPresent("&&", +[](const Value& lhs, const Value& rhs) { return lhs && rhs; });
-        testOperatorPresent("||", +[](const Value& lhs, const Value& rhs) { return lhs || rhs; });
-        testOperatorPresent("<<", +[](const Value& lhs, const Value& rhs) { return lhs << rhs; });
-        testOperatorPresent(">>", +[](const Value& lhs, const Value& rhs) { return lhs >> rhs; });
-        testOperatorPresent("&", +[](const Value& lhs, const Value& rhs) { return lhs & rhs; });
-        testOperatorPresent("|", +[](const Value& lhs, const Value& rhs) { return lhs | rhs; });
-        testOperatorPresent("^", +[](const Value& lhs, const Value& rhs) { return lhs ^ rhs; });
-        testOperatorPresent("&=", +[](const Value& lhs, const Value& rhs) { return lhs &= rhs; });
-        testOperatorPresent("|=", +[](const Value& lhs, const Value& rhs) { return lhs |= rhs; });
-        testOperatorPresent("^=", +[](const Value& lhs, const Value& rhs) { return lhs ^= rhs; });
-        testOperatorPresent("=", +[](const Value& lhs, const Value& rhs) { return lhs = rhs; });
-        testOperatorPresent("==", +[](const Value& lhs, const Value& rhs) { return lhs == rhs; });
-        testOperatorPresent("!=", +[](const Value& lhs, const Value& rhs) { return lhs != rhs; });
-        testOperatorPresent(">", +[](const Value& lhs, const Value& rhs) { return lhs > rhs; });
-        testOperatorPresent(">=", +[](const Value& lhs, const Value& rhs) { return lhs >= rhs; });
-        testOperatorPresent("<", +[](const Value& lhs, const Value& rhs) { return lhs < rhs; });
-        testOperatorPresent("<=", +[](const Value& lhs, const Value& rhs) { return lhs <= rhs; });
-        testOperatorPresent("!", +[](const Value& lhs, const Value& rhs) { return !lhs; });
-        testOperatorPresent("~", +[](const Value& lhs, const Value& rhs) { return ~lhs; });
-        testOperatorPresent("++", +[](const Value& lhs, const Value& rhs) { return ++lhs; });
-        testOperatorPresent("--", +[](const Value& lhs, const Value& rhs) { return --lhs; });
-        testOperatorPresent("++", +[](const Value& lhs, const Value& rhs) { return lhs++; });
-        testOperatorPresent("--", +[](const Value& lhs, const Value& rhs) { return lhs--; });
+        testOperatorPresent("+" , 0,  +[](const Value& lhs, const Value& rhs) { return lhs +  rhs; });
+        testOperatorPresent("-" , 1,  +[](const Value& lhs, const Value& rhs) { return lhs -  rhs; });
+        testOperatorPresent("*" , 2,  +[](const Value& lhs, const Value& rhs) { return lhs *  rhs; });
+        testOperatorPresent("/" , 3,  +[](const Value& lhs, const Value& rhs) { return lhs /  rhs; });
+        testOperatorPresent("%" , 4,  +[](const Value& lhs, const Value& rhs) { return lhs %  rhs; });
+        testOperatorPresent("+=", 5,  +[](const Value& lhs, const Value& rhs) { return lhs += rhs; });
+        testOperatorPresent("-=", 6,  +[](const Value& lhs, const Value& rhs) { return lhs -= rhs; });
+        testOperatorPresent("*=", 7,  +[](const Value& lhs, const Value& rhs) { return lhs *= rhs; });
+        testOperatorPresent("/=", 8,  +[](const Value& lhs, const Value& rhs) { return lhs /= rhs; });
+        testOperatorPresent("%=", 9,  +[](const Value& lhs, const Value& rhs) { return lhs %= rhs; });
+        testOperatorPresent("&&", 10, +[](const Value& lhs, const Value& rhs) { return lhs && rhs; });
+        testOperatorPresent("||", 11, +[](const Value& lhs, const Value& rhs) { return lhs || rhs; });
+        testOperatorPresent("<<", 12, +[](const Value& lhs, const Value& rhs) { return lhs << rhs; });
+        testOperatorPresent(">>", 13, +[](const Value& lhs, const Value& rhs) { return lhs >> rhs; });
+        testOperatorPresent("&" , 14, +[](const Value& lhs, const Value& rhs) { return lhs &  rhs; });
+        testOperatorPresent("|" , 15, +[](const Value& lhs, const Value& rhs) { return lhs |  rhs; });
+        testOperatorPresent("^" , 16, +[](const Value& lhs, const Value& rhs) { return lhs ^  rhs; });
+        testOperatorPresent("&=", 17, +[](const Value& lhs, const Value& rhs) { return lhs &= rhs; });
+        testOperatorPresent("|=", 18, +[](const Value& lhs, const Value& rhs) { return lhs |= rhs; });
+        testOperatorPresent("^=", 19, +[](const Value& lhs, const Value& rhs) { return lhs ^= rhs; });
+        testOperatorPresent("=" , 20, +[](const Value& lhs, const Value& rhs) { return lhs =  rhs; });
+        testOperatorPresent("==", 21, +[](const Value& lhs, const Value& rhs) { return lhs == rhs; });
+        testOperatorPresent("!=", 22, +[](const Value& lhs, const Value& rhs) { return lhs != rhs; });
+        testOperatorPresent("<" , 23, +[](const Value& lhs, const Value& rhs) { return lhs <  rhs; });
+        testOperatorPresent("<=", 24, +[](const Value& lhs, const Value& rhs) { return lhs <= rhs; });
+        testOperatorPresent(">" , 25, +[](const Value& lhs, const Value& rhs) { return lhs >  rhs; });
+        testOperatorPresent(">=", 26, +[](const Value& lhs, const Value& rhs) { return lhs >= rhs; });
+        testOperatorPresent("++", 27, +[](const Value& lhs, const Value& rhs) { return ++lhs;      });
+        testOperatorPresent("++", 28, +[](const Value& lhs, const Value& rhs) { return lhs++;      });
+        testOperatorPresent("--", 29, +[](const Value& lhs, const Value& rhs) { return --lhs;      });
+        testOperatorPresent("--", 30, +[](const Value& lhs, const Value& rhs) { return lhs--;      });
+        testOperatorPresent("-" , 31, +[](const Value& lhs, const Value& rhs) { return -lhs;       });
+        testOperatorPresent("!" , 32, +[](const Value& lhs, const Value& rhs) { return !lhs;       });
+        testOperatorPresent("~" , 33, +[](const Value& lhs, const Value& rhs) { return ~lhs;       });
     }
 };
 
-TEST_CASE("Test Object Values", "[bind]") {
+TEST_CASE("Test Object Values", "[codegen]") {
     SECTION("Object Value Conversion") {
         conversion::testObjectConversion();
     }
