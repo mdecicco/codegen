@@ -812,7 +812,7 @@ namespace codegen {
         FuncMatch search = FuncMatch(overrideName);
 
         if (_i == OpCode::iinc || _i == OpCode::idec) {
-            if (resultIsPreOp) search.noArgs();
+            if (!resultIsPreOp) search.noArgs();
             else {
                 // postfix increment/decrement have one single argument and it's always i32
                 search.argTps({ Registry::GetType<i32>() }, true);
@@ -823,7 +823,8 @@ namespace codegen {
 
         if (strictMatch) {
             Array<Value> opArgs;
-            if (!resultIsPreOp && (_i == OpCode::iinc || _i == OpCode::idec)) {
+            if (resultIsPreOp && (_i == OpCode::iinc || _i == OpCode::idec)) {
+                // postfix increment/decrement have one single argument and it's always i32
                 opArgs.push(m_owner->val(i32(0)));
             }
 
