@@ -44,7 +44,9 @@ include_directories(
     ${FFI_INCLUDE_DIR}
 )
 
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/deps/bind)
+if (NOT TARGET bind)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/deps/bind)
+endif()
 
 add_library(codegen ${all_sources})
 target_link_libraries(codegen bind)
