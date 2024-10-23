@@ -37,16 +37,16 @@ add_sources("src/interfaces" "./interfaces")
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
+if (NOT TARGET bind)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/deps/bind)
+endif()
+
 include_directories(
     ${TSN_CODEGEN_INCLUDE_DIR}
     ${TSN_BIND_INCLUDE_DIR}
     ${TSN_UTILS_INCLUDE_DIR}
     ${FFI_INCLUDE_DIR}
 )
-
-if (NOT TARGET bind)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/deps/bind)
-endif()
 
 add_library(codegen ${all_sources})
 target_link_libraries(codegen bind)
