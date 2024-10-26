@@ -14,12 +14,12 @@ namespace codegen {
         m_postProcesses.push(process);
     }
 
-    void IBackend::process(FunctionBuilder* input, u32 postProcessMask) {
+    bool IBackend::process(FunctionBuilder* input, u32 postProcessMask) {
         CodeHolder ch(input->getCode());
         ch.owner = input;
         ch.rebuildAll();
 
-        onBeforePostProcessing(&ch);
+        if (!onBeforePostProcessing(&ch)) return false;
         
         for (IPostProcessStep* step : m_postProcesses) {
             for (BasicBlock& b : ch.cfg.blocks) {
@@ -29,11 +29,11 @@ namespace codegen {
             while (step->execute(&ch, postProcessMask));
         }
 
-        onAfterPostProcessing(&ch);
+        if (!onAfterPostProcessing(&ch)) return false;
 
-        transform(&ch);
+        return transform(&ch);
     }
 
-    void IBackend::onBeforePostProcessing(CodeHolder* ch) { }
-    void IBackend::onAfterPostProcessing(CodeHolder* ch) { }
+    bool IBackend::onBeforePostProcessing(CodeHolder* ch) { return true; }
+    bool IBackend::onAfterPostProcessing(CodeHolder* ch) { return true; }
 };

@@ -8,7 +8,7 @@ namespace codegen {
             TestBackend();
             virtual ~TestBackend();
 
-            virtual void transform(CodeHolder* processedCode);
+            virtual bool transform(CodeHolder* processedCode);
         
         protected:
             Array<TestExecuterCallHandler*> m_callHandlers;

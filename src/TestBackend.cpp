@@ -12,7 +12,8 @@ namespace codegen {
         for (TestExecuterCallHandler* h : m_callHandlers) delete h;
     }
 
-    void TestBackend::transform(CodeHolder* processedCode) {
+    bool TestBackend::transform(CodeHolder* processedCode) {
         processedCode->owner->getFunction()->setCallHandler(new TestExecuterCallHandler(processedCode));
+        return true;
     }
 };
